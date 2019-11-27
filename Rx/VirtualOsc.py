@@ -55,13 +55,6 @@ class VirtualOsc:
         return self._line,
 
     def _run(self, data):
-        t = np.arange(0, self._size) * self._deltaT
-        data = np.array(list(self.src_queue))
-
-        # 1:idle 2:head 3:data 4:cal
-        for i in [1, 2, 3, 4]:
-            idx = (data[:, 1] == i)
-
         self._line.set_data(np.arange(0, self._size) * self._deltaT, list(self.src_queue))
         return self._line,
 
