@@ -22,6 +22,10 @@ class Synchronizer:
         self.cal_reset_t = cal_reset_t
         self.cal_reset_horizon = int(cal_reset_t * self.fs)
 
+        self.thread = threading.Thread(target=self._synchronizer())
+
+    def start(self):
+        self.thread.start()
 
     def _synchronizer(self):
         while True:
@@ -35,10 +39,10 @@ class Synchronizer:
         for i in range(self.cal_syn_horizon):
             cal_queue.append(self.src_queue.get(block=True, timeout=None))
         while True:
-            # TODO: detect cal frame
-            if True:
+            cal_diff = np.diff(list(cal_queue)) * self.fs
+            if np.all(cal_diff < -20):
                 cal_frame = list(cal_queue)
-                for i in range(self.cal_frame_horion - self.cal_syn_horizon):
+                for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                     cal_frame.append(self.src_queue.get(block=True, timeout=None))
                 self.dst_queue.put(('cal', cal_frame), block=True, timeout=None)
 

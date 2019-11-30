@@ -33,6 +33,8 @@ class NiAdc(Task):
         # print(rec_cnt)
         return 0  # The function should return an integer
 
+    def start(self):
+        self.StartTask()
 
 if __name__ == '__main__':
     pass
