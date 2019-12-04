@@ -78,8 +78,19 @@ class Demodulator:
             assert False
 
     def torch_ode_piecewise_series_solv(self, t, T0, We, order=3, piece=5e-3):
-
-        pass
+        assert t[0] == 0
+        eps = (t[1] - t[0]) / 3
+        y = [T0]
+        for i in range(1, t.shape[0]):
+            t_mod = t[i] % piece
+            if (t_mod < eps) or (t_mod > piece - eps):
+                T = self.torch_ode_series_solv(piece, T0, We, order)
+                T0 = T
+                y.append(T)
+            else:
+                T = self.torch_ode_series_solv(t_mod, T0, We, order)
+                y.append(T)
+        return np.array(y)
 
     @staticmethod
     def pyro_v_step(x, p0, p1, p2, p3):
@@ -119,8 +130,9 @@ if __name__ == '__main__':
     y0 = 293.15
     w = 0.8978
 
-    y = d.torch_ode_series_solv(t, y0, w, order=2)
-    print(y)
+    y = d.torch_ode_piecewise_series_solv(t, y0, w, order=3)
+    # print(y)
     plt.plot(t, y)
+    plt.xlim([0, 50e-3])
     plt.ylim([200, 1100])
     plt.show()
