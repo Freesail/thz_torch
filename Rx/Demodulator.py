@@ -3,23 +3,30 @@ import threading
 import queue
 from scipy import optimize, integrate, interpolate
 import matplotlib.pyplot as plt
+import pickle
 
 
 class Demodulator:
-    def __init__(self, sample_freq=1e3, channel_id='single', range=2000):
+    def __init__(self, sample_freq=1e3, channel_id='single', channel_range=2000, Te=293.15):
         self.src_queue = queue.Queue(maxsize=0)
         self.fs = sample_freq
         self.channel_id = channel_id
-        self.range = range
+        self.channel_range = channel_range
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
         except OSError:
             self.pyro_params = None
 
-        self.channel_trans, self.wavelength = self.get_channel_info()
+        try:
+            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
+                self.normalized_rx_power_func = pickle.load(f)
+        except FileNotFoundError:
+            self.normalized_rx_power_func = self.get_normalized_rx_power_func()
+            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
+                pickle.dump(self.normalized_rx_power_func, f)
 
-        self.Te = 293.15
+        self.Te = Te
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -51,6 +58,9 @@ class Demodulator:
         print('pyro calibration done.')
 
     def data_demodulate(self, frame):
+        pass
+
+    def bit_predict(self):
         pass
 
     # TODO: correct typo in paper
@@ -99,7 +109,7 @@ class Demodulator:
         bpf = np.genfromtxt('./data/filter/%s.csv' % self.channel_id, delimiter=',', dtype=np.float64)
         bpf_trans = interpolate.interp1d(bpf[:, 0], bpf[:, 1], bounds_error=True)
 
-        atmos = np.genfromtxt('./data/atoms/%s.csv' % self.range)
+        atmos = np.genfromtxt('./data/atoms/%s.csv' % self.channel_range)
         atmos_trans = interpolate.interp1d(atmos[:, 0], atmos[:, 1], bounds_error=True)
 
         max_wl, min_wl = bpf[:, 0].max(), bpf[:, 0].min()
@@ -119,17 +129,29 @@ class Demodulator:
         # W/Sr/m^2/um
         return c1 / (wl ** 5) / (np.exp(c2 / wl / T) - 1)
 
-    def get_power(self, T, integrate_method='trapz'):
+    def get_rx_power(self, T, integrate_method='trapz'):
+
+        channel_trans, wavelength = self.get_channel_info()
+
         def rx_spectrum(wl):
-            return self.planck_equ(wl, T) * self.channel_trans(wl)
+            return self.planck_equ(wl, T) * channel_trans(wl)
 
         if integrate_method == 'trapz':
-            x = self.wavelength
-            y = rx_spectrum(self.wavelength)
+            x = wavelength
+            y = rx_spectrum(wavelength)
             return np.trapz(y, x=x) * np.pi * 0.8 * 2.89e-6
         elif integrate_method == 'quad':
-            result = integrate.quad(rx_spectrum, self.wavelength[0], self.wavelength[-1])
+            result = integrate.quad(rx_spectrum, wavelength[0], wavelength[-1])
             return result[0] * np.pi * 0.8 * 2.89e-6
+
+    def get_normalized_rx_power_func(self, dT=0.5):
+        p_step = self.get_rx_power(1023)
+        T = np.arange(250, 1100, dT)
+        p_nor = []
+        for i in T:
+            p_nor.append(self.get_rx_power(i) / p_step)
+        func = interpolate.interp1d(T, p_nor, bounds_error=True)
+        return func
 
     @staticmethod
     def pyro_v_step(x, p0, p1, p2, p3):
