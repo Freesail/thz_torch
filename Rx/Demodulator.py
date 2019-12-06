@@ -7,7 +7,9 @@ import pickle
 
 
 class Demodulator:
-    def __init__(self, sample_freq=1e3, channel_id='single', channel_range=2000, Te=293.15):
+    def __init__(self, sample_freq=1e3,
+                 channel_id='single', channel_range=2000, Te=293.15,
+                 frame_header=(1, 1, 1, 0)):
         self.src_queue = queue.Queue(maxsize=0)
         self.fs = sample_freq
         self.channel_id = channel_id
@@ -27,6 +29,7 @@ class Demodulator:
                 pickle.dump(self.normalized_rx_power_func, f)
 
         self.Te = Te
+        self.frame_header = frame_header
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -60,8 +63,33 @@ class Demodulator:
     def data_demodulate(self, frame):
         pass
 
-    def bit_predict(self):
-        pass
+    def bit_predict(self, t, T0, v0, dvdt0, We, dt=1e-4, torch_solver='ode'):
+        We_func = lambda x: We
+
+        assert t[0] == 0.0
+        t_grid = np.linspace(0, t[-1], int(t[-1] - t[0] / dt) + 1)
+
+        if torch_solver == 'ode':
+            T_ode = integrate.odeint(self.torch_ode, T0, t_grid, args=(We_func,))
+            T = T_ode[:, 0]
+        elif torch_solver == 'piecewise_series':
+            T = self.torch_ode_piecewise_series_solv(t_grid, T0, We)
+        T_end = T[-1]
+
+        nor_rx_power = np.zeros(t_grid.shape, dtype=np.float64)
+        for i in range(nor_rx_power.shape[0]):
+            nor_rx_power[i] = self.normalized_rx_power_func(T[i])
+
+        dnor_rx_power_dt = interpolate.interp1d(t_grid[:-1], np.diff(nor_rx_power) / dt,
+                                                kind='quadratic', bounds_error=False, fill_value='extrapolate')
+
+        v_ode = integrate.odeint(self.pyro_ode, [v0, dvdt0], t, args=(dnor_rx_power_dt,))
+        v = v_ode[:, 0]
+
+        v_end = v[-1]
+        dvdt_end = v_ode[-1, 1]
+
+        return v, T_end, v_end, dvdt_end, (t_grid, T, nor_rx_power)
 
     # TODO: correct typo in paper
     def torch_ode(self, T, t, We):
@@ -90,7 +118,7 @@ class Demodulator:
         else:
             assert False
 
-    def torch_ode_piecewise_series_solv(self, t, T0, We, order=3, piece=5e-3):
+    def torch_ode_piecewise_series_solv(self, t, T0, We, order=3, piece=3e-3):
         assert t[0] == 0
         eps = (t[1] - t[0]) / 3
         y = [T0]
