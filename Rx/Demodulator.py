@@ -8,12 +8,13 @@ import pickle
 
 class Demodulator:
     def __init__(self, sample_freq=1e3,
-                 channel_id='single', channel_range=2000, Te=293.15,
-                 frame_header=(1, 1, 1, 0)):
+                 channel_id='single', channel_range=2000, Te=293.15, w_torch=0.8978,
+                 frame_header=(1, 1, 1, 0), bit_rate=50):
         self.src_queue = queue.Queue(maxsize=0)
         self.fs = sample_freq
         self.channel_id = channel_id
         self.channel_range = channel_range
+        self.w_torch = w_torch
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
@@ -30,6 +31,7 @@ class Demodulator:
 
         self.Te = Te
         self.frame_header = frame_header
+        self.bit_rate = bit_rate
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -53,12 +55,21 @@ class Demodulator:
         plt.figure()
         plt.plot(t, v_step, t, v_step_fit)
         plt.savefig('./result/cal/v_step.png')
+        plt.close()
         np.savetxt('./result/cal/v_step.csv', np.stack((t, v_step, v_step_fit), axis=-1), delimiter=',')
         np.savetxt('./result/cal/vstep_params.csv', popt, delimiter=',')
 
         self.pyro_params = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
         np.savetxt('./result/cal/pyro_params.csv', self.pyro_params, delimiter=',')
         print('pyro calibration done.')
+
+        v_header, t_header = self.header_predict()
+        plt.figure()
+        plt.plot(t_header, v_header)
+        plt.savefig('./result/cal/v_header.png')
+        plt.close()
+        np.savetxt('./result/cal/v_header.csv', v_header, delimiter=',')
+        print('header calibration done.')
 
     def data_demodulate(self, frame):
         pass
@@ -91,7 +102,22 @@ class Demodulator:
 
         return v, T_end, v_end, dvdt_end, (t_grid, T, nor_rx_power)
 
-    # TODO: correct typo in paper
+    def header_predict(self):
+        n = len(self.frame_header)
+        spb = round(self.fs / self.bit_rate)
+        t_header = np.linspace(start=0, stop=1.0 / self.bit_rate * n, num=spb * n + 1)
+        v_header = np.zeros(shape=(spb * n + 1,))
+        t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
+
+        T0, v0, dvdt0 = self.Te, 0.0, 0.0
+        for i in range(n):
+            s_idx = i * spb
+            e_idx = (i + 1) * spb + 1
+
+            v_bit, T0, v0, dvdt0, info = self.bit_predict(t, T0, v0, dvdt0, self.frame_header[i] * self.w_torch)
+            v_header[s_idx:e_idx] = v_bit
+        return v_header, t_header
+
     def torch_ode(self, T, t, We):
         ke = 1.033e-3
         Ce = 1.9e-5
@@ -100,7 +126,6 @@ class Demodulator:
         dTdt = (We(t) - ke * (T - self.Te) - b * (T ** 4)) / Ce
         return dTdt
 
-    # TODO: correct typo in paper
     def torch_ode_series_solv(self, t, T0, We, order=3):
         ke = 1.033e-3
         Ce = 1.9e-5
@@ -185,7 +210,6 @@ class Demodulator:
     def pyro_v_step(x, p0, p1, p2, p3):
         return p0 * (np.exp(-p1 * x) - np.exp(-p2 * x)) + p3
 
-    # TODO: correct typo in paper
     def pyro_ode(self, x, t, dpdt):
         dx0dt = x[1]
         dx1dt = - (self.pyro_params[0] * x[1] + self.pyro_params[1] * x[0] + self.pyro_params[2] * dpdt(t))
