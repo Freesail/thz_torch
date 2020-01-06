@@ -4,7 +4,7 @@ import matplotlib.ticker as ticker
 import numpy as np
 from datetime import datetime
 from collections import deque
-from NiAdc import NiAdc
+from Rx.NiAdc import NiAdc
 
 tableau20 = np.array([(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),
                       (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),
@@ -15,7 +15,7 @@ tableau20 = np.array([(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187
 
 class VirtualOsc:
     # xmax is ms, sample_freq in Hz
-    def __init__(self, sample_freq=1E3, xmax=1000, ymax=5.0):
+    def __init__(self, sample_freq=1E3, xmax=2000, ymax=1.0):
         self._fs = sample_freq
         self._size = int(xmax / 1000 * sample_freq)
         self.src_queue = deque([0.0] * self._size, maxlen=self._size)

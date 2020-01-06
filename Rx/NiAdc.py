@@ -1,12 +1,14 @@
 from PyDAQmx import *
 import numpy as np
 from ctypes import byref
+from collections import deque
+from queue import Queue
 
 DEBUG = False
 
 
 class NiAdc(Task):
-    def __init__(self, device='Dev2', ch='ai0', vmax=5.0, sample_freq=1E3, event_freq=1E2, dst_queue=None):
+    def __init__(self, dst_queue, device='Dev1', ch='ai0', vmax=2.0, sample_freq=1E3, event_freq=1E2, ):
         Task.__init__(self)
         self._device = device
         self._ch = ch
@@ -28,12 +30,19 @@ class NiAdc(Task):
                            byref(read),
                            None)
         rec_cnt = read.value
-        self._dst_queue.extend(self._adc_buf[:rec_cnt].tolist())
+
+        if isinstance(self._dst_queue, deque):
+            self._dst_queue.extend(self._adc_buf[:rec_cnt].tolist())
+        elif isinstance(self._dst_queue, Queue):
+            for i in range(rec_cnt):
+                self._dst_queue.put(self._adc_buf[i])
+        else:
+            assert False
         # if rec_cnt != self._everyN:
-        # print(rec_cnt)
         return 0  # The function should return an integer
 
     def start(self):
+        print('ADC starts')
         self.StartTask()
 
 if __name__ == '__main__':

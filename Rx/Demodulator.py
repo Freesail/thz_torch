@@ -16,18 +16,18 @@ class Demodulator:
         self.channel_range = channel_range
         self.w_torch = w_torch
 
-        try:
-            self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
-        except OSError:
-            self.pyro_params = None
-
-        try:
-            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
-                self.normalized_rx_power_func = pickle.load(f)
-        except FileNotFoundError:
-            self.normalized_rx_power_func = self.get_normalized_rx_power_func()
-            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
-                pickle.dump(self.normalized_rx_power_func, f)
+        # try:
+        #     self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
+        # except OSError:
+        #     self.pyro_params = None
+        #
+        # try:
+        #     with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
+        #         self.normalized_rx_power_func = pickle.load(f)
+        # except FileNotFoundError:
+        #     self.normalized_rx_power_func = self.get_normalized_rx_power_func()
+        #     with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
+        #         pickle.dump(self.normalized_rx_power_func, f)
 
         self.Te = Te
         self.frame_header = frame_header
@@ -35,6 +35,7 @@ class Demodulator:
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
+        print('Demodulator starts')
         self.thread.start()
 
     def demodulate(self):
@@ -46,6 +47,7 @@ class Demodulator:
                 self.cal_demodulate(frame)
 
     def cal_demodulate(self, frame):
+        print('Cal frame received')
         t = np.arange(0, len(frame)) / self.fs
         v_step = frame
 
@@ -61,15 +63,16 @@ class Demodulator:
 
         self.pyro_params = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
         np.savetxt('./result/cal/pyro_params.csv', self.pyro_params, delimiter=',')
+        print('v_step fitting result: ', popt)
         print('pyro calibration done.')
 
-        v_header, t_header = self.header_predict()
-        plt.figure()
-        plt.plot(t_header, v_header)
-        plt.savefig('./result/cal/v_header.png')
-        plt.close()
-        np.savetxt('./result/cal/v_header.csv', v_header, delimiter=',')
-        print('header calibration done.')
+        # v_header, t_header = self.header_predict()
+        # plt.figure()
+        # plt.plot(t_header, v_header)
+        # plt.savefig('./result/cal/v_header.png')
+        # plt.close()
+        # np.savetxt('./result/cal/v_header.csv', v_header, delimiter=',')
+        # print('header calibration done.')
 
     def data_demodulate(self, frame):
         pass
