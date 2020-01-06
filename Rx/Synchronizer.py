@@ -44,7 +44,13 @@ class Synchronizer:
     def switch_mode(self):
         try:
             mode = self.mode_queue.get(block=False)
-            print('Synchronizer mode: %s' % self.mode)
+            if mode != self.mode:
+                self.mode = mode
+                if self.mode == 'cal':
+                    self.cal_refill = True
+                elif self.mode == 'data':
+                    pass
+                print('Switch synchronizer mode to: %s' % self.mode)
         except queue.Empty:
             pass
 
@@ -70,4 +76,3 @@ class Synchronizer:
 
     def data_synchronizer(self):
         pass
-
