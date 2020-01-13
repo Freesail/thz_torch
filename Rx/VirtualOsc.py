@@ -61,7 +61,8 @@ class VirtualOsc:
 
 if __name__ == '__main__':
     test_osc = VirtualOsc()
-    test_adc = NiAdc(dst_queue=test_osc.src_queue)
+    test_adc = NiAdc()
+    test_adc.dst_queue = test_osc.src_queue
     test_adc.StartTask()
     plt.show()
     test_adc.StopTask()

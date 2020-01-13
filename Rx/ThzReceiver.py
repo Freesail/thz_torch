@@ -12,15 +12,18 @@ CONFIG = {
 
 class ThzReceiver:
     def __init__(self, fs):
-        self.demodulator = Demodulator(sample_freq=fs)
+        self.adc = NiAdc(
+            sample_freq=fs)
 
         self.synchronizer = Synchronizer(
-            dst_queue=self.demodulator.src_queue,
             sample_freq=fs)
 
-        self.adc = NiAdc(
-            dst_queue=self.synchronizer.src_queue,
+        self.demodulator = Demodulator(
+            header_queue=self.synchronizer.header_queue,
             sample_freq=fs)
+
+        self.adc.dst_queue = self.synchronizer.src_queue
+        self.synchronizer.dst_queue = self.demodulator.src_queue
 
         self.thread = threading.Thread(target=self.terminal)
 

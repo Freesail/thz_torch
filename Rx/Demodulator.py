@@ -7,31 +7,39 @@ import pickle
 
 
 class Demodulator:
-    def __init__(self, sample_freq=1e3,
+    def __init__(self, header_queue, sample_freq=1e3,
                  channel_id='single', channel_range=2000, Te=293.15, w_torch=0.8978,
                  frame_header=(1, 1, 1, 0), bit_rate=50):
         self.src_queue = queue.Queue(maxsize=0)
+        self.header_queue = header_queue
+
         self.fs = sample_freq
         self.channel_id = channel_id
         self.channel_range = channel_range
+        self.channel_info = self.get_channel_info()
         self.w_torch = w_torch
-
-        # try:
-        #     self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
-        # except OSError:
-        #     self.pyro_params = None
-        #
-        # try:
-        #     with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
-        #         self.normalized_rx_power_func = pickle.load(f)
-        # except FileNotFoundError:
-        #     self.normalized_rx_power_func = self.get_normalized_rx_power_func()
-        #     with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
-        #         pickle.dump(self.normalized_rx_power_func, f)
-
         self.Te = Te
         self.frame_header = frame_header
         self.bit_rate = bit_rate
+
+        try:
+            self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
+        except OSError:
+            self.pyro_params = None
+
+        try:
+            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
+                self.normalized_rx_power_func = pickle.load(f)
+        except FileNotFoundError:
+            self.normalized_rx_power_func = self.get_normalized_rx_power_func()
+            with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
+                pickle.dump(self.normalized_rx_power_func, f)
+
+        try:
+            header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
+        except OSError:
+            pass
+
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -66,13 +74,15 @@ class Demodulator:
         print('v_step fitting result: ', popt)
         print('pyro calibration done.')
 
-        # v_header, t_header = self.header_predict()
-        # plt.figure()
-        # plt.plot(t_header, v_header)
-        # plt.savefig('./result/cal/v_header.png')
-        # plt.close()
-        # np.savetxt('./result/cal/v_header.csv', v_header, delimiter=',')
-        # print('header calibration done.')
+        # TODO: send header to syn
+        v_header, t_header = self.header_predict()
+        plt.figure()
+        plt.plot(t_header, v_header)
+        plt.savefig('./result/header/header_pred.png')
+        plt.close()
+        np.savetxt('./result/header/header_pred.csv', v_header, delimiter=',')
+        self.header_queue.put(v_header)
+        print('header calibration done.')
 
     def data_demodulate(self, frame):
         pass
@@ -81,7 +91,8 @@ class Demodulator:
         We_func = lambda x: We
 
         assert t[0] == 0.0
-        t_grid = np.linspace(0, t[-1], int(t[-1] - t[0] / dt) + 1)
+        t_grid = np.linspace(0, t[-1], int((t[-1] - t[0]) / dt) + 1)
+        print(t_grid.shape)
 
         if torch_solver == 'ode':
             T_ode = integrate.odeint(self.torch_ode, T0, t_grid, args=(We_func,))
@@ -89,10 +100,12 @@ class Demodulator:
         elif torch_solver == 'piecewise_series':
             T = self.torch_ode_piecewise_series_solv(t_grid, T0, We)
         T_end = T[-1]
+        print(T.shape)
 
         nor_rx_power = np.zeros(t_grid.shape, dtype=np.float64)
         for i in range(nor_rx_power.shape[0]):
             nor_rx_power[i] = self.normalized_rx_power_func(T[i])
+        print(nor_rx_power.shape)
 
         dnor_rx_power_dt = interpolate.interp1d(t_grid[:-1], np.diff(nor_rx_power) / dt,
                                                 kind='quadratic', bounds_error=False, fill_value='extrapolate')
@@ -162,10 +175,10 @@ class Demodulator:
         return np.array(y)
 
     def get_channel_info(self):
-        bpf = np.genfromtxt('./data/filter/%s.csv' % self.channel_id, delimiter=',', dtype=np.float64)
+        bpf = np.genfromtxt('./data/filter/%s.csv' % self.channel_id, delimiter=',', dtype=np.float32)
         bpf_trans = interpolate.interp1d(bpf[:, 0], bpf[:, 1], bounds_error=True)
 
-        atmos = np.genfromtxt('./data/atoms/%s.csv' % self.channel_range)
+        atmos = np.genfromtxt('./data/atmos/%s.csv' % self.channel_range, delimiter=',', dtype=np.float32)
         atmos_trans = interpolate.interp1d(atmos[:, 0], atmos[:, 1], bounds_error=True)
 
         max_wl, min_wl = bpf[:, 0].max(), bpf[:, 0].min()
@@ -187,7 +200,7 @@ class Demodulator:
 
     def get_rx_power(self, T, integrate_method='trapz'):
 
-        channel_trans, wavelength = self.get_channel_info()
+        channel_trans, wavelength = self.channel_info
 
         def rx_spectrum(wl):
             return self.planck_equ(wl, T) * channel_trans(wl)

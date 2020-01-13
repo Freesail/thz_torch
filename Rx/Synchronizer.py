@@ -7,12 +7,14 @@ DEBUG = False
 
 
 class Synchronizer:
-    def __init__(self, dst_queue, sample_freq=1e3, mode='cal',
+    def __init__(self, sample_freq=1e3, mode='cal',
                  cal_syn_t=5e-3, cal_frame_t=5e-1, cal_reset_t=8e-1,
                  ):
         self.src_queue = queue.Queue(maxsize=0)
         self.mode_queue = queue.Queue(maxsize=0)
-        self.dst_queue = dst_queue
+        self.header_queue = queue.Queue(maxsize=0)
+        self.dst_queue = None
+
         self.mode = mode
         self.fs = sample_freq
 
@@ -25,10 +27,12 @@ class Synchronizer:
         self.cal_queue = deque([0.0] * self.cal_syn_horizon, maxlen=self.cal_syn_horizon)
         self.cal_refill = True
 
+        self.frame_header = None
+
         self.thread = threading.Thread(target=self._synchronizer)
 
     def start(self):
-        print('Synchronizer starts with %s mode' % self.mode)
+        print('Synchronizer: starts with %s mode' % self.mode)
         self.thread.start()
 
     def _synchronizer(self):
@@ -50,7 +54,15 @@ class Synchronizer:
                     self.cal_refill = True
                 elif self.mode == 'data':
                     pass
-                print('Switch synchronizer mode to: %s' % self.mode)
+                print('Synchronizer: switch mode to: %s' % self.mode)
+        except queue.Empty:
+            pass
+
+    def get_frame_header(self):
+        try:
+            self.frame_header = self.header_queue.get(block=False)
+            print('Synchronizer: frame header updated')
+            assert False
         except queue.Empty:
             pass
 
@@ -75,4 +87,8 @@ class Synchronizer:
             self.cal_queue.append(self.src_queue.get(block=True, timeout=None))
 
     def data_synchronizer(self):
-        pass
+        self.get_frame_header()
+        if self.frame_header is None:
+            print('Synchronizer: need frame header for data sync')
+        else:
+            pass
