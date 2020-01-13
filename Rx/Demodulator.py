@@ -85,14 +85,13 @@ class Demodulator:
         print('header calibration done.')
 
     def data_demodulate(self, frame):
-        pass
+        print('Demodulator: data frame received')
 
     def bit_predict(self, t, T0, v0, dvdt0, We, dt=1e-4, torch_solver='ode'):
         We_func = lambda x: We
 
         assert t[0] == 0.0
         t_grid = np.linspace(0, t[-1], int((t[-1] - t[0]) / dt) + 1)
-        print(t_grid.shape)
 
         if torch_solver == 'ode':
             T_ode = integrate.odeint(self.torch_ode, T0, t_grid, args=(We_func,))
@@ -100,12 +99,10 @@ class Demodulator:
         elif torch_solver == 'piecewise_series':
             T = self.torch_ode_piecewise_series_solv(t_grid, T0, We)
         T_end = T[-1]
-        print(T.shape)
 
         nor_rx_power = np.zeros(t_grid.shape, dtype=np.float64)
         for i in range(nor_rx_power.shape[0]):
             nor_rx_power[i] = self.normalized_rx_power_func(T[i])
-        print(nor_rx_power.shape)
 
         dnor_rx_power_dt = interpolate.interp1d(t_grid[:-1], np.diff(nor_rx_power) / dt,
                                                 kind='quadratic', bounds_error=False, fill_value='extrapolate')

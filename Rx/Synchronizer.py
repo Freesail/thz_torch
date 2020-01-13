@@ -2,12 +2,13 @@ import numpy as np
 import queue
 import threading
 from collections import deque
+import matplotlib.pyplot as plt
 
 DEBUG = False
 
 
 class Synchronizer:
-    def __init__(self, sample_freq=1e3, mode='cal',
+    def __init__(self, sample_freq=1e3, mode='data',
                  cal_syn_t=5e-3, cal_frame_t=5e-1, cal_reset_t=8e-1,
                  frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8, data_reset_t=8e-1,
                  ):
@@ -25,8 +26,6 @@ class Synchronizer:
         self.cal_frame_horizon = int(cal_frame_t * self.fs)
         self.cal_reset_t = cal_reset_t
         self.cal_reset_horizon = int(cal_reset_t * self.fs)
-        self.cal_queue = deque([0.0] * self.cal_syn_horizon, maxlen=self.cal_syn_horizon)
-        self.cal_refill = True
 
         self.data_syn_t = len(frame_header) / bit_rate
         self.data_syn_horizon = int(self.data_syn_t * self.fs) + 1
@@ -34,11 +33,12 @@ class Synchronizer:
         self.data_frame_horizon = int(self.data_frame_t * self.fs) + 1
         self.data_reset_t = data_reset_t
         self.data_reset_horizon = int(data_reset_t * self.fs)
-        self.data_queue = deque([0.0] * self.data_syn_horizon, maxlen=self.data_syn_horizon)
-        self.data_refill = True
 
-        self.frame_header = None
+        self.syn_queue_len = max(self.cal_syn_horizon, self.data_syn_horizon)
+        self.syn_queue = deque([0.0] * self.syn_queue_len, maxlen=self.syn_queue_len)
+        self.refill = True
 
+        self.v_header = None
         self.thread = threading.Thread(target=self._synchronizer)
 
     def start(self):
@@ -60,48 +60,70 @@ class Synchronizer:
             mode = self.mode_queue.get(block=False)
             if mode != self.mode:
                 self.mode = mode
-                if self.mode == 'cal':
-                    self.cal_refill = True
-                elif self.mode == 'data':
-                    self.data_refill = True
                 print('Synchronizer: switch mode to: %s' % self.mode)
         except queue.Empty:
             pass
 
-    def get_frame_header(self):
+    def get_v_header(self):
         try:
-            self.frame_header = self.header_queue.get(block=False)
+            self.v_header = self.header_queue.get(block=False)
             print('Synchronizer: frame header updated')
-            assert False
         except queue.Empty:
             pass
 
-    def cal_synchronizer(self):
-        if self.cal_refill:
-            for i in range(self.cal_syn_horizon):
-                self.cal_queue.append(self.src_queue.get(block=True, timeout=None))
-            self.cal_refill = False
+    def refill_syn_queue(self):
+        for i in range(self.syn_queue_len):
+            self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
+        self.refill = False
 
-        cal_diff = np.diff(list(self.cal_queue)) * self.fs
+    def cal_synchronizer(self):
+        if self.refill:
+            self.refill_syn_queue()
+
+        cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
+        cal_diff = np.diff(cal_syn) * self.fs
 
         if np.all(cal_diff < -20):
-            cal_frame = list(self.cal_queue)
+            cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                 cal_frame.append(self.src_queue.get(block=True, timeout=None))
             self.dst_queue.put(('cal', cal_frame), block=True, timeout=None)
 
             for i in range(self.cal_reset_horizon):
                 self.src_queue.get(block=True, timeout=None)
-            self.cal_refill = True
+            self.refill = True
         else:
-            self.cal_queue.append(self.src_queue.get(block=True, timeout=None))
+            self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
     def data_synchronizer(self):
-        self.get_frame_header()
-        if self.frame_header is None:
+        self.get_v_header()
+        if self.v_header is None:
             print('Synchronizer: need frame header for data sync')
         else:
-            if self.data_refill:
-                for i in range(self.data_syn_horizon):
-                    self.data_queue.append(self.src_queue.get(block=True, timeout=None))
-                self.data_refill = True
+            if self.refill:
+                self.refill_syn_queue()
+
+            data_syn = list(self.syn_queue)[-self.data_syn_horizon:]
+            # print(self.v_header.shape)
+            # print(np.array(data_syn).shape)
+            # assert False
+            e = np.mean(np.abs(self.v_header - np.array(data_syn)))
+            # print(e)
+            if e < 0.02:
+                plt.figure()
+                plt.plot(self.v_header)
+                plt.plot(data_syn)
+                plt.savefig('./result/sync/sync.png')
+                plt.close()
+
+                data_frame = data_syn
+                for i in range(self.data_frame_horizon - self.data_syn_horizon):
+                    data_frame.append(self.src_queue.get(block=True, timeout=None))
+                self.dst_queue.put(('data', data_frame), block=True, timeout=None)
+
+                for i in range(self.data_reset_horizon):
+                    self.src_queue.get(block=True, timeout=None)
+                self.refill = True
+            else:
+                self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
+

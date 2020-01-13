@@ -7,19 +7,23 @@ import time
 
 CONFIG = {
     'fs': 1e3,
+    'bit_rate': 50,
 }
 
 
 class ThzReceiver:
-    def __init__(self, fs):
+    def __init__(self, fs, bit_rate):
         self.adc = NiAdc(
             sample_freq=fs)
 
         self.synchronizer = Synchronizer(
-            sample_freq=fs)
+            sample_freq=fs,
+            bit_rate=bit_rate
+        )
 
         self.demodulator = Demodulator(
             header_queue=self.synchronizer.header_queue,
+            bit_rate=bit_rate,
             sample_freq=fs)
 
         self.adc.dst_queue = self.synchronizer.src_queue
