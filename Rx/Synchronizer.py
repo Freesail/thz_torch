@@ -9,6 +9,7 @@ DEBUG = False
 class Synchronizer:
     def __init__(self, sample_freq=1e3, mode='cal',
                  cal_syn_t=5e-3, cal_frame_t=5e-1, cal_reset_t=8e-1,
+                 frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8, data_reset_t=8e-1,
                  ):
         self.src_queue = queue.Queue(maxsize=0)
         self.mode_queue = queue.Queue(maxsize=0)
@@ -26,6 +27,15 @@ class Synchronizer:
         self.cal_reset_horizon = int(cal_reset_t * self.fs)
         self.cal_queue = deque([0.0] * self.cal_syn_horizon, maxlen=self.cal_syn_horizon)
         self.cal_refill = True
+
+        self.data_syn_t = len(frame_header) / bit_rate
+        self.data_syn_horizon = int(self.data_syn_t * self.fs) + 1
+        self.data_frame_t = (len(frame_header) + frame_bits) / bit_rate
+        self.data_frame_horizon = int(self.data_frame_t * self.fs) + 1
+        self.data_reset_t = data_reset_t
+        self.data_reset_horizon = int(data_reset_t * self.fs)
+        self.data_queue = deque([0.0] * self.data_syn_horizon, maxlen=self.data_syn_horizon)
+        self.data_refill = True
 
         self.frame_header = None
 
@@ -53,7 +63,7 @@ class Synchronizer:
                 if self.mode == 'cal':
                     self.cal_refill = True
                 elif self.mode == 'data':
-                    pass
+                    self.data_refill = True
                 print('Synchronizer: switch mode to: %s' % self.mode)
         except queue.Empty:
             pass
@@ -91,4 +101,7 @@ class Synchronizer:
         if self.frame_header is None:
             print('Synchronizer: need frame header for data sync')
         else:
-            pass
+            if self.data_refill:
+                for i in range(self.data_syn_horizon):
+                    self.data_queue.append(self.src_queue.get(block=True, timeout=None))
+                self.data_refill = True
