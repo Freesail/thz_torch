@@ -9,7 +9,7 @@ import pickle
 class Demodulator:
     def __init__(self, header_queue, sample_freq=1e3,
                  channel_id='single', channel_range=2000, Te=293.15, w_torch=0.8978,
-                 frame_header=(1, 1, 1, 0), bit_rate=50):
+                 frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8):
         self.src_queue = queue.Queue(maxsize=0)
         self.header_queue = header_queue
 
@@ -21,6 +21,7 @@ class Demodulator:
         self.Te = Te
         self.frame_header = frame_header
         self.bit_rate = bit_rate
+        self.frame_bits = frame_bits
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
@@ -86,6 +87,81 @@ class Demodulator:
 
     def data_demodulate(self, frame):
         print('Demodulator: data frame received')
+        n = len(self.frame_header) + self.frame_bits
+        spb = round(self.fs / self.bit_rate)
+        t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb+1)
+        T_init, v_init, dvdt_init = self.Te, 0.0, 0.0
+        digits = ()
+
+        t_frame = np.linspace(start=0, stop=1.0 / self.bit_rate * n, num=spb * n + 1)
+        v_f1 = np.zeros(t_frame.shape)
+        v_f0 = np.zeros(t_frame.shape)
+        T_f1 = np.zeros(t_frame.shape)
+        T_f0 = np.zeros(t_frame.shape)
+        pnor_f1 = np.zeros(t_frame.shape)
+        pnor_f0 = np.zeros(t_frame.shape)
+
+        for i in range(n):
+            s_idx = i * spb
+            e_idx = (i + 1) * spb + 1
+
+            vr = frame[s_idx:e_idx]
+            v1, T1_end, v1_end, dvdt1_end, info1 = self.bit_predict(t, T_init, v_init, dvdt_init, self.w_torch)
+            v0, T0_end, v0_end, dvdt0_end, info0 = self.bit_predict(t, T_init, v_init, dvdt_init, 0.0)
+
+            bit = self.sequence_matching(vr, v1, v0)
+            digits += (bit,)
+
+            if bit == 1:
+                T_init, v_init, dvdt_init = T1_end, v1_end, dvdt1_end
+            else:
+                T_init, v_init, dvdt_init = T0_end, v0_end, dvdt0_end
+            v_init = vr[-1]
+
+            v_f1[s_idx:e_idx] = v1
+            v_f0[s_idx:e_idx] = v0
+            T_f1[s_idx:e_idx] = interpolate.interp1d(info1[0], info1[1], bounds_error=True)(t)
+            T_f0[s_idx:e_idx] = interpolate.interp1d(info0[0], info0[1], bounds_error=True)(t)
+            pnor_f1[s_idx:e_idx] = interpolate.interp1d(info1[0], info1[2], bounds_error=True)(t)
+            pnor_f0[s_idx:e_idx] = interpolate.interp1d(info0[0], info0[2], bounds_error=True)(t)
+
+            if i == (len(self.frame_header) - 1):
+                if digits != self.frame_header:
+                    print('Demodulator: wrong data frame header detected')
+                    break
+
+        print(digits[len(self.frame_header):])
+
+        plt.figure()
+        plt.plot(t_frame, v_f1, label='v1')
+        plt.plot(t_frame, v_f0, label='v0')
+        plt.plot(t_frame, frame, label='measured')
+        plt.savefig('./result/frame/v.png')
+        plt.close()
+
+        plt.figure()
+        plt.plot(t_frame, T_f1, label='T1')
+        plt.plot(t_frame, T_f0, label='T0')
+        plt.savefig('./result/frame/T.png')
+        plt.close()
+
+        plt.figure()
+        plt.plot(t_frame, pnor_f1, label='P1')
+        plt.plot(t_frame, pnor_f0, label='P0')
+        plt.savefig('./result/frame/P.png')
+        plt.close()
+
+    def sequence_matching(self, vr, v1, v0, mode='l1'):
+        if mode == 'l1':
+            e1 = np.sum(np.abs(vr - v1))
+            e0 = np.sum(np.abs(vr - v0))
+        else:
+            pass
+
+        if e1 > e0:
+            return 0
+        else:
+            return 1
 
     def bit_predict(self, t, T0, v0, dvdt0, We, dt=1e-4, torch_solver='ode'):
         We_func = lambda x: We
