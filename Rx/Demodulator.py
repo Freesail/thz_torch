@@ -44,7 +44,7 @@ class Demodulator:
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
-        print('Demodulator starts')
+        print('Demodulator: starts')
         self.thread.start()
 
     def demodulate(self):
@@ -56,7 +56,7 @@ class Demodulator:
                 self.cal_demodulate(frame)
 
     def cal_demodulate(self, frame):
-        print('Cal frame received')
+        print('Demodulator: cal frame received')
         t = np.arange(0, len(frame)) / self.fs
         v_step = frame
 

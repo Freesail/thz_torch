@@ -60,7 +60,7 @@ class Synchronizer:
             mode = self.mode_queue.get(block=False)
             if mode != self.mode:
                 self.mode = mode
-                print('Synchronizer: switch mode to: %s' % self.mode)
+                print('Synchronizer: switch mode to - %s' % self.mode)
         except queue.Empty:
             pass
 

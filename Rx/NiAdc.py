@@ -8,7 +8,7 @@ DEBUG = False
 
 
 class NiAdc(Task):
-    def __init__(self, device='Dev1', ch='ai0', vmax=2.0, sample_freq=1E3, event_freq=1E2, ):
+    def __init__(self, device='Dev1', ch='ai0', vmax=2.0, sample_freq=1E3, event_freq=1E2):
         Task.__init__(self)
         self._device = device
         self._ch = ch
@@ -42,7 +42,7 @@ class NiAdc(Task):
         return 0  # The function should return an integer
 
     def start(self):
-        print('ADC starts')
+        print('NiAdC: starts')
         self.StartTask()
 
 if __name__ == '__main__':
