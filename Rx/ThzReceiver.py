@@ -28,8 +28,6 @@ class ThzReceiver:
             frame_bits=frame_bits
         )
 
-        self.monitor = VirtualOsc(sample_freq=fs)
-
         self.demodulator = Demodulator(
             header_queue=self.synchronizer.header_queue,
             sample_freq=fs,
