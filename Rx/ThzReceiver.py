@@ -9,7 +9,7 @@ from Rx.VirtualOsc import VirtualOsc
 CONFIG = {
     'fs': 1e3,
     'channel_id': 'single',
-    'channel_range': 2000,
+    'channel_range': 1000,
     'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
     'frame_bits': 8,

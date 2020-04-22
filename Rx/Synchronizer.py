@@ -109,7 +109,7 @@ class Synchronizer:
             # assert False
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
             # print(e)
-            if e < 0.02:
+            if e < 0.15:
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
