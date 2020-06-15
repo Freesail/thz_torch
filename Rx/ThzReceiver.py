@@ -12,6 +12,7 @@ CONFIG = {
     'channel_range': 1000,
     'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
+    # 'frame_header': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
     'frame_bits': 8,
 }
 
@@ -19,7 +20,7 @@ CONFIG = {
 class ThzReceiver:
     def __init__(self, fs, bit_rate, frame_header, frame_bits, channel_id, channel_range):
         self.adc = NiAdc(
-            sample_freq=fs)
+            sample_freq=fs, vmax=5.0)
 
         self.synchronizer = Synchronizer(
             sample_freq=fs,

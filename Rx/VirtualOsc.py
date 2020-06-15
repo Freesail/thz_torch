@@ -15,7 +15,7 @@ tableau20 = np.array([(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187
 
 class VirtualOsc:
     # xmax is ms, sample_freq in Hz
-    def __init__(self, sample_freq=1E3, xmax=2000, ymax=2.0):
+    def __init__(self, sample_freq=1E3, xmax=2000, ymax=2.5):
         self._fs = sample_freq
         self._size = int(xmax / 1000 * sample_freq)
         self.src_queue = deque([0.0] * self._size, maxlen=self._size)
@@ -61,7 +61,7 @@ class VirtualOsc:
 
 if __name__ == '__main__':
     test_osc = VirtualOsc()
-    test_adc = NiAdc()
+    test_adc = NiAdc(vmax=5.0)
     test_adc.dst_queue = test_osc.src_queue
     test_adc.StartTask()
     plt.show()

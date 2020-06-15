@@ -113,8 +113,10 @@ class Synchronizer:
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
+                np.savetxt('./result/sync/sync.csv', data_syn, delimiter=',')
                 plt.savefig('./result/sync/sync.png')
                 plt.close()
+                # assert False
 
                 data_frame = data_syn
                 for i in range(self.data_frame_horizon - self.data_syn_horizon):
