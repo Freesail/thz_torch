@@ -54,6 +54,11 @@ class Demodulator:
                 self.data_demodulate(frame)
             elif mode == 'cal':
                 self.cal_demodulate(frame)
+    #         elif mode == 'chopper':
+    #             self.chopper_demodulate(frame)
+    #
+    # def chopper_demodulate(self, frame):
+    #     pass
 
     def cal_demodulate(self, frame):
         print('Demodulator: cal frame received')
@@ -190,6 +195,14 @@ class Demodulator:
         dvdt_end = v_ode[-1, 1]
 
         return v, T_end, v_end, dvdt_end, (t_grid, T, nor_rx_power)
+
+    # def chopper_bit_predict(self, t, v0, dvdt0, last_bit, this_bit):
+    #     if this_bit == last_bit:
+    #         pass
+    #     elif this_bit == '1':
+    #         pass
+    #     else:
+    #         pass
 
     def header_predict(self):
         n = len(self.frame_header)

@@ -16,7 +16,7 @@ DEBUG = False
 
 
 class ThzTransmitter:
-    def __init__(self, com='COM8'):
+    def __init__(self, com='/dev/tty.usbmodem14101'):
         # print('Thz Transmitter Running...\n')
         self._com = Serial(com, 115200, timeout=500)
         assert self._com_read() == 'Hello, Python'
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     thz_transmitter = ThzTransmitter()
 
     ch = 0
-    dist = 2000
+    dist = 1000
 
     ber_bits = 50
     ber_frames = 200
