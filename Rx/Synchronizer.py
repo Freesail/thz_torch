@@ -128,4 +128,3 @@ class Synchronizer:
                 self.refill = True
             else:
                 self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
-
