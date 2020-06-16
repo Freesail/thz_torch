@@ -8,7 +8,7 @@ import pickle
 
 class Demodulator:
     def __init__(self, header_queue, sample_freq=1e3,
-                 channel_id='single', channel_range=2000, Te=293.15, w_torch=0.8978,
+                 channel_id='single', channel_range=2000, Te=293.15,
                  frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8):
         self.src_queue = queue.Queue(maxsize=0)
         self.header_queue = header_queue
@@ -17,7 +17,6 @@ class Demodulator:
         self.channel_id = channel_id
         self.channel_range = channel_range
         self.channel_info = self.get_channel_info()
-        self.w_torch = w_torch
         self.Te = Te
         self.frame_header = frame_header
         self.bit_rate = bit_rate
@@ -27,6 +26,12 @@ class Demodulator:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
         except OSError:
             self.pyro_params = None
+
+        try:
+            self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+        except OSError:
+            # We, ke, Ce
+            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -54,11 +59,20 @@ class Demodulator:
                 self.data_demodulate(frame)
             elif mode == 'cal':
                 self.cal_demodulate(frame)
+            elif mode == 'tx_cal':
+                self.tx_cal_demodulate(frame)
+
     #         elif mode == 'chopper':
     #             self.chopper_demodulate(frame)
     #
     # def chopper_demodulate(self, frame):
     #     pass
+
+    # def tx_cal_demodulate(self, frame, npop, dim=[2]):
+    #
+    #     x = self.tx_params[dim]
+    #     lb = lb[dim]
+    #     ub = ub[dim]
 
     def cal_demodulate(self, frame):
         print('Demodulator: cal frame received')
@@ -81,7 +95,7 @@ class Demodulator:
         print('pyro calibration done.')
 
         # TODO: send header to syn
-        v_header, t_header = self.header_predict()
+        v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
         plt.figure()
         plt.plot(t_header, v_header)
         plt.savefig('./result/header/header_pred.png')
@@ -94,7 +108,7 @@ class Demodulator:
         print('Demodulator: data frame received')
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
-        t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb+1)
+        t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
         T_init, v_init, dvdt_init = self.Te, 0.0, 0.0
         digits = ()
 
@@ -111,8 +125,11 @@ class Demodulator:
             e_idx = (i + 1) * spb + 1
 
             vr = frame[s_idx:e_idx]
-            v1, T1_end, v1_end, dvdt1_end, info1 = self.bit_predict(t, T_init, v_init, dvdt_init, self.w_torch)
-            v0, T0_end, v0_end, dvdt0_end, info0 = self.bit_predict(t, T_init, v_init, dvdt_init, 0.0)
+            v1, T1_end, v1_end, dvdt1_end, info1 = \
+                self.bit_predict(t, T_init, v_init, dvdt_init, self.tx_params[0], self.tx_params[1], self.tx_params[2])
+
+            v0, T0_end, v0_end, dvdt0_end, info0 = \
+                self.bit_predict(t, T_init, v_init, dvdt_init, 0.0, self.tx_params[1], self.tx_params[2])
 
             bit = self.sequence_matching(vr, v1, v0)
             digits += (bit,)
@@ -168,17 +185,15 @@ class Demodulator:
         else:
             return 1
 
-    def bit_predict(self, t, T0, v0, dvdt0, We, dt=1e-4, torch_solver='ode'):
-        We_func = lambda x: We
-
+    def bit_predict(self, t, T0, v0, dvdt0, We, ke, Ce, dt=1e-4, torch_solver='ode'):
         assert t[0] == 0.0
         t_grid = np.linspace(0, t[-1], int((t[-1] - t[0]) / dt) + 1)
 
         if torch_solver == 'ode':
-            T_ode = integrate.odeint(self.torch_ode, T0, t_grid, args=(We_func,))
+            T_ode = integrate.odeint(self.torch_ode, T0, t_grid, args=(lambda x: We, ke, Ce))
             T = T_ode[:, 0]
         elif torch_solver == 'piecewise_series':
-            T = self.torch_ode_piecewise_series_solv(t_grid, T0, We)
+            T = self.torch_ode_piecewise_series_solv(t_grid, T0, We, ke, Ce)
         T_end = T[-1]
 
         nor_rx_power = np.zeros(t_grid.shape, dtype=np.float64)
@@ -204,7 +219,7 @@ class Demodulator:
     #     else:
     #         pass
 
-    def header_predict(self):
+    def header_predict(self, We, ke, Ce):
         n = len(self.frame_header)
         spb = round(self.fs / self.bit_rate)
         t_header = np.linspace(start=0, stop=1.0 / self.bit_rate * n, num=spb * n + 1)
@@ -216,21 +231,17 @@ class Demodulator:
             s_idx = i * spb
             e_idx = (i + 1) * spb + 1
 
-            v_bit, T0, v0, dvdt0, info = self.bit_predict(t, T0, v0, dvdt0, self.frame_header[i] * self.w_torch)
+            v_bit, T0, v0, dvdt0, info = self.bit_predict(t, T0, v0, dvdt0, self.frame_header[i] * We, ke, Ce)
             v_header[s_idx:e_idx] = v_bit
         return v_header, t_header
 
-    def torch_ode(self, T, t, We):
-        ke = 1.033e-3
-        Ce = 1.9e-5
+    def torch_ode(self, T, t, We, ke, Ce):
         b = 1.311e-13
 
         dTdt = (We(t) - ke * (T - self.Te) - b * (T ** 4)) / Ce
         return dTdt
 
-    def torch_ode_series_solv(self, t, T0, We, order=3):
-        ke = 1.033e-3
-        Ce = 1.9e-5
+    def torch_ode_series_solv(self, t, T0, We, ke, Ce, order=3):
         b = 1.311e-13
         Te = self.Te
 
@@ -245,18 +256,18 @@ class Demodulator:
         else:
             assert False
 
-    def torch_ode_piecewise_series_solv(self, t, T0, We, order=3, piece=3e-3):
+    def torch_ode_piecewise_series_solv(self, t, T0, We, ke, Ce, order=3, piece=3e-3):
         assert t[0] == 0
         eps = (t[1] - t[0]) / 3
         y = [T0]
         for i in range(1, t.shape[0]):
             t_mod = t[i] % piece
             if (t_mod < eps) or (t_mod > piece - eps):
-                T = self.torch_ode_series_solv(piece, T0, We, order)
+                T = self.torch_ode_series_solv(piece, T0, We, ke, Ce, order)
                 T0 = T
                 y.append(T)
             else:
-                T = self.torch_ode_series_solv(t_mod, T0, We, order)
+                T = self.torch_ode_series_solv(t_mod, T0, We, ke, Ce, order)
                 y.append(T)
         return np.array(y)
 
