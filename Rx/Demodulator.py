@@ -65,7 +65,7 @@ class Demodulator:
 
     def tx_cal_demodulate(self, frame):
         print('Demodulator: tx_cal frame received')
-
+        print(frame.shape)
         # params
         npop = 30
         alpha = 5e-3
@@ -98,17 +98,12 @@ class Demodulator:
 
     def header_update(self):
         v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
-
-        v_shift = np.zeros_like(v_header)
-        v_shift[1:] = v_header[0:-1]
-        threshold = np.mean(np.abs(v_header - v_shift)) * 1.2
-        # todo: propose a threshold
         plt.figure()
         plt.plot(t_header, v_header)
         plt.savefig('./result/header/header_pred.png')
         plt.close()
         np.savetxt('./result/header/header_pred.csv', v_header, delimiter=',')
-        self.header_queue.put((v_header, threshold))
+        self.header_queue.put(v_header)
         print('header update done.')
 
     def cal_demodulate(self, frame):

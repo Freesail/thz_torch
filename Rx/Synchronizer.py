@@ -67,7 +67,10 @@ class Synchronizer:
 
     def get_v_header(self):
         try:
-            self.v_header, self.syn_threshold = self.header_queue.get(block=False)
+            self.v_header = self.header_queue.get(block=False)
+            v_shift = np.zeros_like(self.v_header)
+            v_shift[1:] = self.v_header[0:-1]
+            self.syn_threshold = np.mean(np.abs(self.v_header - v_shift)) * 1.2
             print('new syn threshold: %.3f' % self.syn_threshold)
             print('Synchronizer: frame header updated')
         except queue.Empty:
@@ -122,7 +125,7 @@ class Synchronizer:
 
                 data_frame = data_syn
                 if self.mode == 'tx_cal':
-                    self.dst_queue.put(('data', data_frame), block=True, timeout=None)
+                    self.dst_queue.put(('tx_cal', np.array(data_syn)), block=True, timeout=None)
 
                 for i in range(self.data_frame_horizon - self.data_syn_horizon):
                     data_frame.append(self.src_queue.get(block=True, timeout=None))
