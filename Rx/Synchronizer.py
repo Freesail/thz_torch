@@ -11,7 +11,7 @@ class Synchronizer:
     def __init__(self, sample_freq=1e3, mode='data',
                  cal_syn_t=5e-3, cal_frame_t=5e-1, cal_reset_t=8e-1,
                  frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8, data_reset_t=8e-1,
-                 ):
+                 syn_threshold=0.15):
         self.src_queue = queue.Queue(maxsize=0)
         self.mode_queue = queue.Queue(maxsize=0)
         self.header_queue = queue.Queue(maxsize=0)
@@ -36,6 +36,7 @@ class Synchronizer:
 
         self.syn_queue_len = max(self.cal_syn_horizon, self.data_syn_horizon)
         self.syn_queue = deque([0.0] * self.syn_queue_len, maxlen=self.syn_queue_len)
+        self.syn_threshold = syn_threshold
         self.refill = True
 
         self.v_header = None
@@ -50,8 +51,8 @@ class Synchronizer:
             self.switch_mode()
             if self.mode == 'cal':
                 self.cal_synchronizer()
-            elif self.mode == 'data':
-                self.data_synchronizer()
+            elif self.mode == 'data' or self.mode == 'tx_cal':
+                self.data_txcal_synchronizer()
             else:
                 assert False
 
@@ -66,7 +67,8 @@ class Synchronizer:
 
     def get_v_header(self):
         try:
-            self.v_header = self.header_queue.get(block=False)
+            self.v_header, self.syn_threshold = self.header_queue.get(block=False)
+            print('new syn threshold: %.3f' % self.syn_threshold)
             print('Synchronizer: frame header updated')
         except queue.Empty:
             pass
@@ -95,10 +97,10 @@ class Synchronizer:
         else:
             self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
-    def data_synchronizer(self):
+    def data_txcal_synchronizer(self):
         self.get_v_header()
         if self.v_header is None:
-            print('Synchronizer: need frame header for data sync')
+            print('Synchronizer: need frame header for data_txcal sync')
         else:
             if self.refill:
                 self.refill_syn_queue()
@@ -109,7 +111,7 @@ class Synchronizer:
             # assert False
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
             # print(e)
-            if e < 0.15:
+            if e < self.syn_threshold:
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
@@ -119,9 +121,14 @@ class Synchronizer:
                 # assert False
 
                 data_frame = data_syn
+                if self.mode == 'tx_cal':
+                    self.dst_queue.put(('data', data_frame), block=True, timeout=None)
+
                 for i in range(self.data_frame_horizon - self.data_syn_horizon):
                     data_frame.append(self.src_queue.get(block=True, timeout=None))
-                self.dst_queue.put(('data', data_frame), block=True, timeout=None)
+
+                if self.mode == 'data':
+                    self.dst_queue.put(('data', data_frame), block=True, timeout=None)
 
                 for i in range(self.data_reset_horizon):
                     self.src_queue.get(block=True, timeout=None)

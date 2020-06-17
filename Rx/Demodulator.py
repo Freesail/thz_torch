@@ -2,6 +2,7 @@ import numpy as np
 import threading
 import queue
 from scipy import optimize, integrate, interpolate
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pickle
 
@@ -62,17 +63,53 @@ class Demodulator:
             elif mode == 'tx_cal':
                 self.tx_cal_demodulate(frame)
 
-    #         elif mode == 'chopper':
-    #             self.chopper_demodulate(frame)
-    #
-    # def chopper_demodulate(self, frame):
-    #     pass
+    def tx_cal_demodulate(self, frame):
+        print('Demodulator: tx_cal frame received')
 
-    # def tx_cal_demodulate(self, frame, npop, dim=[2]):
-    #
-    #     x = self.tx_params[dim]
-    #     lb = lb[dim]
-    #     ub = ub[dim]
+        # params
+        npop = 30
+        alpha = 5e-3
+        lb = np.array([-1e5, -1e5, 1e-5])
+        ub = np.array([1e5, 1e5, 3e-5])
+        num_iter = 10
+        sigma = 20
+        dim = [2]
+
+        print('old tx_params: ', self.tx_params)
+        x = self.tx_params[dim]
+        lb = lb[dim]
+        ub = ub[dim]
+        sigma = (ub - lb) / sigma
+        for _ in tqdm(range(num_iter)):
+            N = np.random.rand(npop, 1)
+            R = np.zeros(npop)
+            for j in range(npop):
+                x_try = x + sigma * N[j]
+                pred, _ = self.header_predict(We=self.tx_params[0], ke=self.tx_params[1], Ce=x_try)
+                R[j] = np.mean(np.abs(pred - frame))
+            A = (R - np.mean(R)) / np.std(R)
+            x = x - alpha * (npop * sigma) * np.dot(N.T, A)
+        self.tx_params[dim] = x
+        np.savetxt('./result/tx_cal/tx_params.csv', self.tx_params, delimiter=',')
+        print('new tx_params: ', self.tx_params)
+        print('tx calibration done.')
+
+        self.header_update()
+
+    def header_update(self):
+        v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
+
+        v_shift = np.zeros_like(v_header)
+        v_shift[1:] = v_header[0:-1]
+        threshold = np.mean(np.abs(v_header - v_shift)) * 1.2
+        # todo: propose a threshold
+        plt.figure()
+        plt.plot(t_header, v_header)
+        plt.savefig('./result/header/header_pred.png')
+        plt.close()
+        np.savetxt('./result/header/header_pred.csv', v_header, delimiter=',')
+        self.header_queue.put((v_header, threshold))
+        print('header update done.')
 
     def cal_demodulate(self, frame):
         print('Demodulator: cal frame received')
@@ -95,14 +132,7 @@ class Demodulator:
         print('pyro calibration done.')
 
         # TODO: send header to syn
-        v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
-        plt.figure()
-        plt.plot(t_header, v_header)
-        plt.savefig('./result/header/header_pred.png')
-        plt.close()
-        np.savetxt('./result/header/header_pred.csv', v_header, delimiter=',')
-        self.header_queue.put(v_header)
-        print('header calibration done.')
+        self.header_update()
 
     def data_demodulate(self, frame):
         print('Demodulator: data frame received')
@@ -210,14 +240,6 @@ class Demodulator:
         dvdt_end = v_ode[-1, 1]
 
         return v, T_end, v_end, dvdt_end, (t_grid, T, nor_rx_power)
-
-    # def chopper_bit_predict(self, t, v0, dvdt0, last_bit, this_bit):
-    #     if this_bit == last_bit:
-    #         pass
-    #     elif this_bit == '1':
-    #         pass
-    #     else:
-    #         pass
 
     def header_predict(self, We, ke, Ce):
         n = len(self.frame_header)
