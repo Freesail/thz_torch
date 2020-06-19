@@ -70,7 +70,7 @@ class Synchronizer:
             self.v_header = self.header_queue.get(block=False)
             v_shift = np.zeros_like(self.v_header)
             v_shift[1:] = self.v_header[0:-1]
-            self.syn_threshold = np.mean(np.abs(self.v_header - v_shift)) * 1.2
+            self.syn_threshold = np.mean(np.abs(self.v_header - v_shift))
             print('new syn threshold: %.3f' % self.syn_threshold)
             print('Synchronizer: frame header updated')
         except queue.Empty:
@@ -113,8 +113,13 @@ class Synchronizer:
             # print(np.array(data_syn).shape)
             # assert False
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
+
+            if self.mode == 'tx_cal':
+                syn_threshold = self.syn_threshold * 2.0
+            else:
+                syn_threshold = self.syn_threshold * 1.2
             # print(e)
-            if e < self.syn_threshold:
+            if e < syn_threshold:
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
