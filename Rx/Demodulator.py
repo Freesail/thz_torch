@@ -65,7 +65,6 @@ class Demodulator:
 
     def tx_cal_demodulate(self, frame):
         print('Demodulator: tx_cal frame received')
-        print(frame.shape)
         # params
         npop = 30
         alpha = 5e-3

@@ -3,6 +3,7 @@ import queue
 import threading
 from collections import deque
 import matplotlib.pyplot as plt
+import ruptures as rpt
 
 DEBUG = False
 
@@ -100,6 +101,22 @@ class Synchronizer:
         else:
             self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
+    def align_by_cpd(self, s1, s2):
+        # t = np.arange(s1.shape[0])
+        #
+        # s1 = np.column_stack((s1.reshape(-1, 1), t))
+        # algo1 = rpt.Dynp(model='linear').fit(s1)
+        # bkp1 = algo1.predict(n_bkps=1)
+        # print(bkp1)
+        #
+        # s2 = np.column_stack((s2.reshape(-1, 1), t))
+        # algo2 = rpt.Dynp(model='linear').fit(s2)
+        # bkp2 = algo2.predict(n_bkps=1)
+        # print(bkp2)
+        #
+        # return bkp1[0] - bkp2[0]
+        return np.argmin(s1) - np.argmin(s2)
+
     def data_txcal_synchronizer(self):
         self.get_v_header()
         if self.v_header is None:
@@ -109,17 +126,26 @@ class Synchronizer:
                 self.refill_syn_queue()
 
             data_syn = list(self.syn_queue)[-self.data_syn_horizon:]
-            # print(self.v_header.shape)
-            # print(np.array(data_syn).shape)
-            # assert False
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 2.0
+                syn_threshold = self.syn_threshold * 5.0
             else:
                 syn_threshold = self.syn_threshold * 1.2
+
             # print(e)
             if e < syn_threshold:
+                # CPD for syn
+                if self.mode == 'tx_cal':
+                    shift = self.align_by_cpd(
+                        s1=np.array(data_syn),
+                        s2=self.v_header
+                    )
+                    for _ in range(shift):
+                        data_syn.append(self.src_queue.get(block=True, timeout=None))
+                        data_syn.pop(0)
+                    print('shift timesteps: %d' % shift)
+
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
