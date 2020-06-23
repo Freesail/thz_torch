@@ -102,20 +102,22 @@ class Synchronizer:
             self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
     def align_by_cpd(self, s1, s2):
-        # t = np.arange(s1.shape[0])
-        #
-        # s1 = np.column_stack((s1.reshape(-1, 1), t))
-        # algo1 = rpt.Dynp(model='linear').fit(s1)
-        # bkp1 = algo1.predict(n_bkps=1)
-        # print(bkp1)
-        #
-        # s2 = np.column_stack((s2.reshape(-1, 1), t))
-        # algo2 = rpt.Dynp(model='linear').fit(s2)
-        # bkp2 = algo2.predict(n_bkps=1)
-        # print(bkp2)
-        #
-        # return bkp1[0] - bkp2[0]
-        return np.argmin(s1) - np.argmin(s2)
+        t = np.arange(s1.shape[0])
+
+        s1 = np.column_stack((s1.reshape(-1, 1), t))
+        algo1 = rpt.Dynp(model='linear').fit(s1)
+        bkp1 = algo1.predict(n_bkps=5)
+        print(bkp1)
+
+        s2 = np.column_stack((s2.reshape(-1, 1), t))
+        algo2 = rpt.Dynp(model='linear').fit(s2)
+        bkp2 = algo2.predict(n_bkps=5)
+        print(bkp2)
+
+        shift = np.array(bkp1)[1:-1] - np.array(bkp2)[0:-2]
+        return int(np.argmax(np.bincount(shift)))
+
+        # return np.argmin(s1) - np.argmin(s2)
 
     def data_txcal_synchronizer(self):
         self.get_v_header()
@@ -131,7 +133,7 @@ class Synchronizer:
             if self.mode == 'tx_cal':
                 syn_threshold = self.syn_threshold * 5.0
             else:
-                syn_threshold = self.syn_threshold * 1.2
+                syn_threshold = self.syn_threshold * 2.0
 
             # print(e)
             if e < syn_threshold:
