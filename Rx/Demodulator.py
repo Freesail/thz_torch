@@ -5,7 +5,6 @@ from scipy import optimize, integrate, interpolate
 from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
-import pickle
 
 
 class Demodulator:
@@ -126,10 +125,9 @@ class Demodulator:
         print('v_step fitting result: ', popt)
         print('pyro calibration done.')
 
-        # TODO: send header to syn
         self.header_update()
 
-    def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl'):
+    def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
         t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
@@ -140,6 +138,7 @@ class Demodulator:
             bits = np.random.randint(2, size=n)
             bits[:len(self.frame_header)] = self.frame_header
             dataset['y'].append(bits)
+            # TODO: sample some params
             v_frame = []
             for i in range(n):
                 bit = bits[i]
@@ -147,7 +146,11 @@ class Demodulator:
                 v_bit, T_init, v_init, dvdt_init, info = \
                     self.bit_predict(t, T_init, v_init, dvdt_init, we, self.tx_params[1], self.tx_params[2])
                 v_frame.append(v_bit[:-1])
-            dataset['x'].append(np.array(v_frame))
+            v_frame = np.array(v_frame)
+            if add_noise:
+                # TODO: add noise the signal
+                pass
+            dataset['x'].append(v_frame)
 
         dataset['x'], dataset['y'] = np.array(dataset['x']), np.array(dataset['y'])
         with open(save_to, 'wb') as f:
@@ -380,7 +383,7 @@ if __name__ == '__main__':
         'frame_bits': 8,
     }
 
-    test = Demodulator(
+    demo = Demodulator(
         header_queue=queue.Queue(maxsize=0),
         sample_freq=cfg['fs'],
         bit_rate=cfg['bit_rate'],
@@ -389,6 +392,8 @@ if __name__ == '__main__':
         channel_id=cfg['channel_id'],
         channel_range=cfg['channel_range']
     )
+
+    demo.simulate_frame(n_frame=3)
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
