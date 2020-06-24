@@ -3,6 +3,7 @@ import threading
 import queue
 from scipy import optimize, integrate, interpolate
 from tqdm import tqdm
+import pickle
 import matplotlib.pyplot as plt
 import pickle
 
@@ -127,6 +128,30 @@ class Demodulator:
 
         # TODO: send header to syn
         self.header_update()
+
+    def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl'):
+        n = len(self.frame_header) + self.frame_bits
+        spb = round(self.fs / self.bit_rate)
+        t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
+
+        dataset = {'x': [], 'y': []}
+        for _ in tqdm(range(n_frame)):
+            T_init, v_init, dvdt_init = self.Te, 0.0, 0.0
+            bits = np.random.randint(2, size=n)
+            bits[:len(self.frame_header)] = self.frame_header
+            dataset['y'].append(bits)
+            v_frame = []
+            for i in range(n):
+                bit = bits[i]
+                we = bit * self.tx_params[0]
+                v_bit, T_init, v_init, dvdt_init, info = \
+                    self.bit_predict(t, T_init, v_init, dvdt_init, we, self.tx_params[1], self.tx_params[2])
+                v_frame.append(v_bit[:-1])
+            dataset['x'].append(np.array(v_frame))
+
+        dataset['x'], dataset['y'] = np.array(dataset['x']), np.array(dataset['y'])
+        with open(save_to, 'wb') as f:
+            pickle.dump(dataset, f)
 
     def data_demodulate(self, frame):
         print('Demodulator: data frame received')
@@ -346,10 +371,28 @@ class Demodulator:
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
+    cfg = {
+        'fs': 1e3,
+        'channel_id': 'single',
+        'channel_range': 1000,
+        'bit_rate': 50,
+        'frame_header': (1, 1, 1, 0),
+        'frame_bits': 8,
+    }
 
-    d = Demodulator()
-    print(d.get_power(1023, integrate_method='trapz'))
+    test = Demodulator(
+        header_queue=queue.Queue(maxsize=0),
+        sample_freq=cfg['fs'],
+        bit_rate=cfg['bit_rate'],
+        frame_header=cfg['frame_header'],
+        frame_bits=cfg['frame_bits'],
+        channel_id=cfg['channel_id'],
+        channel_range=cfg['channel_range']
+    )
+    # import matplotlib.pyplot as plt
+    #
+    # d = Demodulator()
+    # print(d.get_power(1023, integrate_method='trapz'))
     # wl = np.arange(1, 20, 0.1)
     # p = d.planck_equ(wl, 1023)
     # p = p * np.pi * 0.8 * 2.89e-6
