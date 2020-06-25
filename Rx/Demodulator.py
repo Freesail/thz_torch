@@ -127,24 +127,41 @@ class Demodulator:
 
         self.header_update()
 
+    def sample_params(self):
+        params = np.zeros(6)
+        params[:2] = self.tx_params[:2]
+        params[2] = np.random.uniform(low=2.1e-5, high=2.8e-5)
+        popt = np.random.uniform(
+            low=[],
+            high=[])
+        params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
+        return 0
+
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
         t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
 
-        dataset = {'x': [], 'y': []}
+        dataset = {'x': [], 'y': [], 'params': []}
         for _ in tqdm(range(n_frame)):
+
             T_init, v_init, dvdt_init = self.Te, 0.0, 0.0
+
             bits = np.random.randint(2, size=n)
             bits[:len(self.frame_header)] = self.frame_header
             dataset['y'].append(bits)
-            # TODO: sample some params
+
+            # TODO: sample tx and pyro params
+            params = self.sample_params()
+            dataset['params'].append(params)
+
             v_frame = []
             for i in range(n):
                 bit = bits[i]
-                we = bit * self.tx_params[0]
+                we = bit * params[0]
                 v_bit, T_init, v_init, dvdt_init, info = \
-                    self.bit_predict(t, T_init, v_init, dvdt_init, we, self.tx_params[1], self.tx_params[2])
+                    self.bit_predict(t, T_init, v_init, dvdt_init, we, params[1], params[2],
+                                     pyro_params=params[3:])
                 v_frame.append(v_bit[:-1])
             v_frame = np.array(v_frame)
             if add_noise:
@@ -152,7 +169,11 @@ class Demodulator:
                 pass
             dataset['x'].append(v_frame)
 
-        dataset['x'], dataset['y'] = np.array(dataset['x']), np.array(dataset['y'])
+        for k, v in dataset.items():
+            dataset[k] = np.array(v)
+        # dataset['x'], dataset['y'], dataset['params'] = \
+        #     np.array(dataset['x']), np.array(dataset['y']), np.array(dataset['params'])
+
         with open(save_to, 'wb') as f:
             pickle.dump(dataset, f)
 
@@ -237,7 +258,7 @@ class Demodulator:
         else:
             return 1
 
-    def bit_predict(self, t, T0, v0, dvdt0, We, ke, Ce, dt=1e-4, torch_solver='ode'):
+    def bit_predict(self, t, T0, v0, dvdt0, We, ke, Ce, dt=1e-4, torch_solver='ode', pyro_params=None):
         assert t[0] == 0.0
         t_grid = np.linspace(0, t[-1], int((t[-1] - t[0]) / dt) + 1)
 
@@ -255,7 +276,7 @@ class Demodulator:
         dnor_rx_power_dt = interpolate.interp1d(t_grid[:-1], np.diff(nor_rx_power) / dt,
                                                 kind='quadratic', bounds_error=False, fill_value='extrapolate')
 
-        v_ode = integrate.odeint(self.pyro_ode, [v0, dvdt0], t, args=(dnor_rx_power_dt,))
+        v_ode = integrate.odeint(self.pyro_ode, [v0, dvdt0], t, args=(dnor_rx_power_dt, pyro_params))
         v = v_ode[:, 0]
 
         v_end = v[-1]
@@ -367,9 +388,11 @@ class Demodulator:
     def pyro_v_step(x, p0, p1, p2, p3):
         return p0 * (np.exp(-p1 * x) - np.exp(-p2 * x)) + p3
 
-    def pyro_ode(self, x, t, dpdt):
+    def pyro_ode(self, x, t, dpdt, pyro_params=None):
+        if pyro_params is None:
+            pyro_params = self.pyro_params
         dx0dt = x[1]
-        dx1dt = - (self.pyro_params[0] * x[1] + self.pyro_params[1] * x[0] + self.pyro_params[2] * dpdt(t))
+        dx1dt = - (pyro_params[0] * x[1] + pyro_params[1] * x[0] + pyro_params[2] * dpdt(t))
         return [dx0dt, dx1dt]
 
 
