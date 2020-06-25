@@ -132,10 +132,10 @@ class Demodulator:
         params[:2] = self.tx_params[:2]
         params[2] = np.random.uniform(low=2.1e-5, high=2.8e-5)
         popt = np.random.uniform(
-            low=[],
-            high=[])
+            low=[1.4, 48, 9.8],
+            high=[3.2, 63, 10.3])
         params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
-        return 0
+        return params
 
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
@@ -151,7 +151,6 @@ class Demodulator:
             bits[:len(self.frame_header)] = self.frame_header
             dataset['y'].append(bits)
 
-            # TODO: sample tx and pyro params
             params = self.sample_params()
             dataset['params'].append(params)
 
@@ -165,8 +164,8 @@ class Demodulator:
                 v_frame.append(v_bit[:-1])
             v_frame = np.array(v_frame)
             if add_noise:
-                # TODO: add noise the signal
-                pass
+                noise = np.random.uniform(low=-0.03, high=0.03, size=v_frame.shape)
+                v_frame = v_frame + noise
             dataset['x'].append(v_frame)
 
         for k, v in dataset.items():
@@ -403,7 +402,7 @@ if __name__ == '__main__':
         'channel_range': 1000,
         'bit_rate': 50,
         'frame_header': (1, 1, 1, 0),
-        'frame_bits': 8,
+        'frame_bits': 50,
     }
 
     demo = Demodulator(
@@ -416,7 +415,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.simulate_frame(n_frame=3)
+    demo.simulate_frame(n_frame=100)
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
