@@ -92,6 +92,7 @@ class ThzTorchModel(nn.Module):
 
 def train_model(n_epoch, batch_size):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
 
     # data
     train_set = ThzTorchDataset(
@@ -125,7 +126,7 @@ def train_model(n_epoch, batch_size):
             loss.backward()
             optimizer.step()
 
-            if i % 100 == 0:
+            if i % 10 == 0:
                 preds = (outputs > 0.5).float()
                 batch_acc = torch.sum(preds == batch['y']).float() / preds.numel()
                 print('batch %d - loss: %.3f | acc: %.3f' % (i, loss.item(), batch_acc.item()))
