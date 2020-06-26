@@ -3,7 +3,7 @@ import pickle
 import torch
 from torch.optim import Adam
 from torch import nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 
 
 class ThzTorchDataset(Dataset):
@@ -95,13 +95,21 @@ def train_model(datapath, n_epoch, batch_size):
     print(device)
 
     # data
-    train_set = ThzTorchDataset(
+    data_set = ThzTorchDataset(
         pkl_file=datapath,
         device=device
     )
+    data_size = len(data_set)
+    train_size = int(data_size * 0.8)
+
+    train_set, val_set = random_split(data_set, [train_size, data_size - train_size])
 
     train_loader = DataLoader(
         train_set, batch_size=batch_size, shuffle=True
+    )
+
+    val_loader = DataLoader(
+        val_set, batch_size=len(val_set), shuffle=True
     )
 
     # model
@@ -118,7 +126,9 @@ def train_model(datapath, n_epoch, batch_size):
     optimizer = Adam(model.parameters(), lr=3e-4)
 
     for epoch in range(1, n_epoch + 1):
-
+        print('Epoch %d' % epoch)
+        # train
+        print('TRAIN')
         for i, batch in enumerate(train_loader):
             outputs = model(batch['x'], batch['params'])
             loss = loss_fn(outputs, batch['y'])
@@ -130,6 +140,15 @@ def train_model(datapath, n_epoch, batch_size):
                 preds = (outputs > 0.5).float()
                 batch_acc = torch.sum(preds == batch['y']).float() / preds.numel()
                 print('batch %d - loss: %.3f | acc: %.3f' % (i, loss.item(), batch_acc.item()))
+        # val
+        print('VAL')
+        with torch.no_grad():
+            for i, batch in enumerate(val_loader):
+                outputs = model(batch['x'], batch['params'])
+                loss = loss_fn(outputs, batch['y'])
+                preds = (outputs > 0.5).float()
+                acc = torch.sum(preds == batch['y']).float() / preds.numel()
+                print('val - loss: %.3f | acc: %.3f' % (loss.item(), acc.item()))
 
 
 if __name__ == '__main__':
