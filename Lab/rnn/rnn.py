@@ -114,8 +114,8 @@ def train_model(datapath, n_epoch, batch_size):
 
     # model
     model = ThzTorchModel(
-        x_size=train_set.x_size,
-        p_size=train_set.p_size,
+        x_size=data_set.x_size,
+        p_size=data_set.p_size,
         lstm_hidden_size=64,
         mlp_hidden_size=32,
         device=device
