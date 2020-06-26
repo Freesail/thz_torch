@@ -61,7 +61,7 @@ class ThzTorchModel(nn.Module):
         self.lstm = nn.LSTM(
             input_size=x_size,
             hidden_size=lstm_hidden_size,
-            num_layers=2,
+            num_layers=1,
             batch_first=True
         )
 
@@ -77,7 +77,7 @@ class ThzTorchModel(nn.Module):
     def forward(self, x, params=None):
         lstm_out, _ = self.lstm(x)
         # print(lstm_out.size())
-        lstm_out = lstm_out.contiguous().view(-1, 256)
+        lstm_out = lstm_out.contiguous().view(-1, self.lstm_hidden_size)
         # print(lstm_out.size())
 
         seq_len = x.size()[1]
@@ -108,8 +108,8 @@ def train_model(datapath, n_epoch, batch_size):
     model = ThzTorchModel(
         x_size=train_set.x_size,
         p_size=train_set.p_size,
-        lstm_hidden_size=256,
-        mlp_hidden_size=128,
+        lstm_hidden_size=128,
+        mlp_hidden_size=64,
         device=device
     )
 
