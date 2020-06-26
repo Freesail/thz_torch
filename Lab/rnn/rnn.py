@@ -90,13 +90,13 @@ class ThzTorchModel(nn.Module):
         return mlp_out.view(-1, seq_len)
 
 
-def train_model(n_epoch, batch_size):
+def train_model(datapath, n_epoch, batch_size):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
     # data
     train_set = ThzTorchDataset(
-        pkl_file='./result/simulate/dataset.pkl',
+        pkl_file=datapath,
         device=device
     )
 
