@@ -145,7 +145,7 @@ class Demodulator:
         self.record_cnt += 1
         print('num of frame recorded: %d' % self.record_cnt)
         n = len(self.frame_header) + self.frame_bits
-        v_frame = np.resize(frame[:-1], (n, -1))
+        v_frame = np.array(frame[:-1]).reshape(n, -1)
         params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
 
         if os.path.exists(save_to):
