@@ -76,7 +76,7 @@ if __name__ == '__main__':
     dist = 1000
 
     ber_bits = 50
-    ber_frames = 200
+    ber_frames = 500
     syn_bits = '1110'
     # ber_file = 'ber_test.pkl'
 
@@ -90,9 +90,9 @@ if __name__ == '__main__':
         elif msg == 'ber':
             ber_ref = []
             for i in range(ber_frames):
-                ber_data = np.random.randint(2, size=ber_bits).tolist()
-                ber_ref.extend(ber_data)
-                ber_str = syn_bits + ''.join(map(str, ber_data))
+                ber_data = np.random.randint(2, size=ber_bits)
+                ber_ref.append(ber_data)
+                ber_str = syn_bits + ''.join(map(str, ber_data.tolist()))
                 thz_transmitter.send_data(ber_str)
 
             ber_ref = np.array(ber_ref)
