@@ -1,4 +1,5 @@
 import pickle
+import os
 
 import torch
 from torch.optim import Adam
@@ -23,15 +24,50 @@ class ThzTorchDataset(Dataset):
         self.data['params'] = self.data['params'][:, 2:]
 
         # normalize
-        mu, std = self.data['x'].mean(), self.data['x'].std()
-        self.data['x'] = (self.data['x'] - mu) / std
+        self.x_mu, self.x_std = self.data['x'].mean(), self.data['x'].std()
+        self.data['x'] = (self.data['x'] - self.x_mu) / self.x_std
 
-        mu, std = self.data['params'].mean(dim=0), self.data['params'].std(dim=0)
-        self.data['params'] = (self.data['params'] - mu) / std
+        self.p_mu, self.p_std = self.data['params'].mean(dim=0), self.data['params'].std(dim=0)
+        self.data['params'] = (self.data['params'] - self.p_mu) / self.p_std
 
         # print(mu.size(), std.size())
         # print(self.data['params'])
         # assert False
+
+    def __len__(self):
+        return self.data['x'].shape[0]
+
+    def __getitem__(self, idx):
+        sample = {}
+        for k, v in self.data.items():
+            sample[k] = v[idx]
+        return sample
+
+
+class ThzTorchTestset(Dataset):
+    def __init__(self, path, device, trainset, datafile='dataset.pkl', labelfile='labels.pkl'):
+        self.device = device
+        self.path = path
+        self.trainset = trainset
+        with open(os.path.join(path, datafile), 'rb') as f:
+            self.data = pickle.load(f)
+        with open(os.path.join(path, labelfile), 'rb') as f:
+            self.data['y'] = pickle.load(f)
+
+        for k, v in self.data.items():
+            self.data[k] = torch.from_numpy(v).float().to(device)
+
+        self.preprocess()
+        # self.x_size = self.data['x'].size()[-1]
+        # self.p_size = self.data['params'].size()[-1]
+
+    def preprocess(self):
+        # choose dims
+        self.data['params'] = self.data['params'][:, 2:]
+
+        # normalize
+        self.data['x'] = (self.data['x'] - self.trainset.x_mu) / self.trainset.x_std
+        self.data['params'] = (self.data['params'] - self.trainset.p_mu) / self.trainset.p_std
 
     def __len__(self):
         return self.data['x'].shape[0]
@@ -90,7 +126,7 @@ class ThzTorchModel(nn.Module):
         return mlp_out.view(-1, seq_len)
 
 
-def train_model(datapath, n_epoch, batch_size):
+def train_model(datapath, testpath, n_epoch, batch_size):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
@@ -103,6 +139,7 @@ def train_model(datapath, n_epoch, batch_size):
     train_size = int(data_size * 0.8)
 
     train_set, val_set = random_split(data_set, [train_size, data_size - train_size])
+    test_set = ThzTorchTestset(testpath, device, data_set)
 
     train_loader = DataLoader(
         train_set, batch_size=batch_size, shuffle=True
@@ -110,6 +147,10 @@ def train_model(datapath, n_epoch, batch_size):
 
     val_loader = DataLoader(
         val_set, batch_size=len(val_set), shuffle=True
+    )
+
+    test_loader = DataLoader(
+        test_set, batch_size=len(test_set), shuffle=True
     )
 
     # model
@@ -144,6 +185,16 @@ def train_model(datapath, n_epoch, batch_size):
         print('VAL')
         with torch.no_grad():
             for i, batch in enumerate(val_loader):
+                outputs = model(batch['x'], batch['params'])
+                loss = loss_fn(outputs, batch['y'])
+                preds = (outputs > 0.5).float()
+                acc = torch.sum(preds == batch['y']).float() / preds.numel()
+                print('val - loss: %.3f | acc: %.3f' % (loss.item(), acc.item()))
+
+        # test
+        print('TEST')
+        with torch.no_grad():
+            for i, batch in enumerate(test_loader):
                 outputs = model(batch['x'], batch['params'])
                 loss = loss_fn(outputs, batch['y'])
                 preds = (outputs > 0.5).float()
