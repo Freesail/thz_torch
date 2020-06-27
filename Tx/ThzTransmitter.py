@@ -75,9 +75,9 @@ if __name__ == '__main__':
     ch = 0
     dist = 1000
 
-    ber_bits = 50
-    ber_frames = 500
-    syn_bits = '1110'
+    frame_bits = 50
+    n_frames = 500
+    frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 
     while True:
@@ -88,12 +88,14 @@ if __name__ == '__main__':
         elif msg == 'cal':
             thz_transmitter.send_calibration()
         elif msg == 'ber':
-            ber_ref = []
-            for i in range(ber_frames):
-                ber_data = np.random.randint(2, size=ber_bits)
-                ber_ref.append(ber_data)
-                ber_str = syn_bits + ''.join(map(str, ber_data.tolist()))
-                thz_transmitter.send_data(ber_str)
+            ber_labels = []
+            n = len(frame_header) + frame_bits
+            for i in range(n_frames):
+                frame = np.random.randint(2, size=n)
+                frame[:len(frame_header)] = frame_header
+                ber_labels.append(frame)
+                frame_str = ''.join(map(str, frame.tolist()))
+                thz_transmitter.send_data(frame_str)
 
             ber_ref = np.array(ber_ref)
             with open('../Rx/result/record/labels.pkl' % (ch, thz_transmitter.br, dist), 'wb') as f:
@@ -102,5 +104,5 @@ if __name__ == '__main__':
             thz_transmitter.br = msg[2:]
             thz_transmitter.send_bitrate(msg)
         else:
-            msg = syn_bits + msg
-            thz_transmitter.send_data(msg)
+            frame = ''.join(map(str, frame_header)) + msg
+            thz_transmitter.send_data(frame)

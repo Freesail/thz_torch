@@ -67,7 +67,6 @@ class Demodulator:
             elif mode == 'record':
                 self.record_demodulate(frame)
 
-
     def tx_cal_demodulate(self, frame):
         print('Demodulator: tx_cal frame received')
         # params
