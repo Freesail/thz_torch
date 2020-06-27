@@ -52,8 +52,8 @@ class Synchronizer:
             self.switch_mode()
             if self.mode == 'cal':
                 self.cal_synchronizer()
-            elif self.mode == 'data' or self.mode == 'tx_cal':
-                self.data_txcal_synchronizer()
+            elif self.mode == 'data' or self.mode == 'tx_cal' or self.mode == 'record':
+                self.data_txcal_record_synchronizer()
             else:
                 assert False
 
@@ -119,10 +119,10 @@ class Synchronizer:
 
         # return np.argmin(s1) - np.argmin(s2)
 
-    def data_txcal_synchronizer(self):
+    def data_txcal_record_synchronizer(self):
         self.get_v_header()
         if self.v_header is None:
-            print('Synchronizer: need frame header for data_txcal sync')
+            print('Synchronizer: need frame header for data_txcal_record sync')
         else:
             if self.refill:
                 self.refill_syn_queue()
@@ -158,13 +158,13 @@ class Synchronizer:
 
                 data_frame = data_syn
                 if self.mode == 'tx_cal':
-                    self.dst_queue.put(('tx_cal', np.array(data_syn)), block=True, timeout=None)
+                    self.dst_queue.put((self.mode, np.array(data_syn)), block=True, timeout=None)
 
                 for i in range(self.data_frame_horizon - self.data_syn_horizon):
                     data_frame.append(self.src_queue.get(block=True, timeout=None))
 
-                if self.mode == 'data':
-                    self.dst_queue.put(('data', data_frame), block=True, timeout=None)
+                if self.mode != 'tx_cal':
+                    self.dst_queue.put((self.mode, data_frame), block=True, timeout=None)
 
                 for i in range(self.data_reset_horizon):
                     self.src_queue.get(block=True, timeout=None)

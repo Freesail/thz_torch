@@ -5,6 +5,7 @@ from scipy import optimize, integrate, interpolate
 from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
+import os
 
 
 class Demodulator:
@@ -22,6 +23,7 @@ class Demodulator:
         self.frame_header = frame_header
         self.bit_rate = bit_rate
         self.frame_bits = frame_bits
+        self.record_cnt = 0
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
@@ -62,6 +64,9 @@ class Demodulator:
                 self.cal_demodulate(frame)
             elif mode == 'tx_cal':
                 self.tx_cal_demodulate(frame)
+            elif mode == 'record':
+                self.record_demodulate(frame)
+
 
     def tx_cal_demodulate(self, frame):
         print('Demodulator: tx_cal frame received')
@@ -136,6 +141,27 @@ class Demodulator:
             high=[3.2, 63, 10.3])
         params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
         return params
+
+    def record_demodulate(self, frame, save_to='./result/record/dataset.pkl'):
+        self.record_cnt += 1
+        print('num of frame recorded: %d' % self.record_cnt)
+        n = len(self.frame_header) + self.frame_bits
+        v_frame = np.resize(frame[:-1], (n, -1))
+        params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
+
+        if os.path.exists(save_to):
+            with open(save_to, 'rb') as f:
+                dataset = pickle.load(f)
+            dataset['x'] = np.vstack([dataset['x'], v_frame])
+            dataset['params'] = np.vstack([dataset['params'], params])
+        else:
+            dataset = {
+                'x': np.array([v_frame]),
+                'params': np.array([params])
+            }
+
+        with open(save_to, 'wb') as f:
+            pickle.dump(dataset, f)
 
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits

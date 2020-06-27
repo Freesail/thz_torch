@@ -46,7 +46,7 @@ class ThzReceiver:
     def console(self):
         while True:
             mode = input()
-            if mode in ['data', 'cal', 'tx_cal']:
+            if mode in ['data', 'cal', 'tx_cal', 'record']:
                 self.synchronizer.mode_queue.put(mode)
                 time.sleep(1)
 
