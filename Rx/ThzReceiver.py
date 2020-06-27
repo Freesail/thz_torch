@@ -12,7 +12,7 @@ CONFIG = {
     'channel_range': 1000,
     'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
-    'frame_bits': 8,
+    'frame_bits': 50,
 }
 
 

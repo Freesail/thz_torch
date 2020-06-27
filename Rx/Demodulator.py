@@ -152,8 +152,8 @@ class Demodulator:
         if os.path.exists(save_to):
             with open(save_to, 'rb') as f:
                 dataset = pickle.load(f)
-            dataset['x'] = np.vstack([dataset['x'], v_frame])
-            dataset['params'] = np.vstack([dataset['params'], params])
+            dataset['x'] = np.vstack([dataset['x'], [v_frame]])
+            dataset['params'] = np.vstack([dataset['params'], [params]])
         else:
             dataset = {
                 'x': np.array([v_frame]),
