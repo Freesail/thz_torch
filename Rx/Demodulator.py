@@ -34,7 +34,7 @@ class Demodulator:
             self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
         except OSError:
             # We, ke, Ce
-            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
+            self.tx_params = np.array([0.8978, 1.033e-3, 2.4e-5])
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -47,7 +47,7 @@ class Demodulator:
         try:
             header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
         except OSError:
-            pass
+            self.header_update()
 
         self.thread = threading.Thread(target=self.demodulate)
 

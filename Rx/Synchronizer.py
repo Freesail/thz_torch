@@ -3,6 +3,7 @@ import queue
 import threading
 from collections import deque
 import matplotlib.pyplot as plt
+from scipy.stats import linregress
 import ruptures as rpt
 
 DEBUG = False
@@ -114,7 +115,8 @@ class Synchronizer:
         bkp2 = algo2.predict(n_bkps=5)
         print(bkp2)
 
-        shift = np.array(bkp1)[1:-1] - np.array(bkp2)[0:-2]
+        shift = np.array(bkp1) - np.array(bkp2)
+        shift = shift[shift >= 0]
         return int(np.argmax(np.bincount(shift)))
 
         # return np.argmin(s1) - np.argmin(s2)
