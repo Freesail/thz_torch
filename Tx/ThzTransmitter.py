@@ -76,7 +76,7 @@ if __name__ == '__main__':
     dist = 1000
 
     frame_bits = 50
-    n_frames = 500
+    n_frames = 200
     frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 
@@ -97,9 +97,9 @@ if __name__ == '__main__':
                 frame_str = ''.join(map(str, frame.tolist()))
                 thz_transmitter.send_data(frame_str)
 
-            ber_ref = np.array(ber_ref)
-            with open('../Rx/result/record/labels.pkl' % (ch, thz_transmitter.br, dist), 'wb') as f:
-                pickle.dump(ber_ref, f)
+            ber_labels = np.array(ber_labels)
+            with open('../Rx/result/record/labels.pkl', 'wb') as f:
+                pickle.dump(ber_labels, f)
         elif 'br' in msg:
             thz_transmitter.br = msg[2:]
             thz_transmitter.send_bitrate(msg)
