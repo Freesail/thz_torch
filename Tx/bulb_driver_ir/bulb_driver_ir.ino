@@ -47,6 +47,14 @@ void loop() {
     {
         calibrate();
     }
+    if (msg == "br50")
+    {
+        T_p = 1000 / 50;
+    }
+    if (msg == "br100")
+    {
+        T_p = 1000 / 100;
+    }
     Serial.println("Done");
   }
 }
@@ -89,5 +97,3 @@ void calibrate(void){
   digitalWrite(d_port, HIGH);
   delay(T_reset);
 }
-
-
