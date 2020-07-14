@@ -34,7 +34,7 @@ class Demodulator:
             self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
         except OSError:
             # We, ke, Ce
-            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
+            self.tx_params = np.array([0.8, 1.033e-3, 1.9e-5])
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -67,37 +67,58 @@ class Demodulator:
             elif mode == 'record':
                 self.record_demodulate(frame)
 
-    def tx_cal_demodulate(self, frame):
+    def tx_cal_demodulate(self, frame, num_iter=20, npop=30, alpha=5e-3):
         print('Demodulator: tx_cal frame received')
+
         # params
-        npop = 30
-        alpha = 5e-3
-        lb = np.array([-1e5, -1e5, 1e-5])
-        ub = np.array([1e5, 1e5, 3e-5])
-        num_iter = 10
+        lb = np.array([0.80, -1e5, 1.5e-5])
+        ub = np.array([0.96, 1e5, 3.1e-5])
         sigma = 20
-        dim = [2]
+        dim = [0, 2]
 
         print('old tx_params: ', self.tx_params)
-        x = self.tx_params[dim]
+        x_init = self.tx_params[dim]
         lb = lb[dim]
         ub = ub[dim]
         sigma = (ub - lb) / sigma
+
+        def error_func(x):
+            pred, _ = self.header_predict(We=x[0], ke=self.tx_params[1], Ce=x[1])
+            error = np.mean(np.abs(pred - frame))
+            return error, pred
+
+        trace = []
+        x = x_init
         for _ in tqdm(range(num_iter)):
-            N = np.random.rand(npop, 1)
+            N = np.random.rand(npop, len(dim))
             R = np.zeros(npop)
             for j in range(npop):
                 x_try = x + sigma * N[j]
-                pred, _ = self.header_predict(We=self.tx_params[0], ke=self.tx_params[1], Ce=x_try)
-                R[j] = np.mean(np.abs(pred - frame))
+                # pred, _ = self.header_predict(We=x_try[0], ke=self.tx_params[1], Ce=x_try[1])
+                R[j], _ = error_func(x_try)
             A = (R - np.mean(R)) / np.std(R)
-            x = x - alpha * (npop * sigma) * np.dot(N.T, A)
+            grad = (npop * sigma) * np.dot(N.T, A)
+
+            # line search
+            error_x = error_func(x)[0]
+            lr = alpha
+            for i in range(5):
+                x_new = x - lr * grad
+                if error_func(x_new)[0] <= error_x:
+                    x = x_new
+                    break
+                else:
+                    lr = lr * 0.8
+
+            trace.append(x)
+
         self.tx_params[dim] = x
         np.savetxt('./result/tx_cal/tx_params.csv', self.tx_params, delimiter=',')
         print('new tx_params: ', self.tx_params)
         print('tx calibration done.')
 
         self.header_update()
+        return np.array(trace), error_func(x)[1], error_func(x_init)[1]
 
     def header_update(self):
         v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
