@@ -104,20 +104,21 @@ class Synchronizer:
 
     def align_by_cpd(self, s1, s2):
         t = np.arange(s1.shape[0])
+        ones = np.ones_like(t)
 
-        s1 = np.column_stack((s1.reshape(-1, 1), t))
+        s1 = np.column_stack((s1.reshape(-1, 1), t, ones))
         algo1 = rpt.Dynp(model='linear').fit(s1)
-        bkp1 = algo1.predict(n_bkps=5)
+        bkp1 = algo1.predict(n_bkps=3)
         print(bkp1)
 
-        s2 = np.column_stack((s2.reshape(-1, 1), t))
+        s2 = np.column_stack((s2.reshape(-1, 1), t, ones))
         algo2 = rpt.Dynp(model='linear').fit(s2)
-        bkp2 = algo2.predict(n_bkps=5)
+        bkp2 = algo2.predict(n_bkps=3)
         print(bkp2)
 
         shift = np.array(bkp1) - np.array(bkp2)
         shift = shift[shift >= 0]
-        return int(np.argmax(np.bincount(shift)))
+        return int(np.argmax(np.bincount(shift))), bkp1, bkp2
 
         # return np.argmin(s1) - np.argmin(s2)
 
@@ -133,7 +134,7 @@ class Synchronizer:
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 5.0
+                syn_threshold = self.syn_threshold * 10.0
             else:
                 syn_threshold = self.syn_threshold * 2.0
 
@@ -141,8 +142,10 @@ class Synchronizer:
             if e < syn_threshold:
                 # CPD for syn
                 if self.mode == 'tx_cal':
-                    shift = self.align_by_cpd(
-                        s1=np.array(data_syn),
+                    pre_cpd = np.array(data_syn)
+
+                    shift, bkp_m, bkp_p = self.align_by_cpd(
+                        s1=pre_cpd,
                         s2=self.v_header
                     )
                     for _ in range(shift):
@@ -150,13 +153,25 @@ class Synchronizer:
                         data_syn.pop(0)
                     print('shift timesteps: %d' % shift)
 
+                    post_cpd = np.array(data_syn)
+                    plot_data = {
+                        'pre_cpd': pre_cpd,
+                        'post_cpd': post_cpd,
+                        'p': self.v_header,
+                        'bkp_m': bkp_m,
+                        'bkp_p': bkp_p
+                    }
+                    with open('./result/sync/cpd_plot.pkl', 'wb') as f:
+                        import pickle
+                        pickle.dump(plot_data, f)
+
                 plt.figure()
                 plt.plot(self.v_header)
                 plt.plot(data_syn)
                 np.savetxt('./result/sync/sync.csv', data_syn, delimiter=',')
                 plt.savefig('./result/sync/sync.png')
                 plt.close()
-                # assert False
+                assert False
 
                 data_frame = data_syn
                 if self.mode == 'tx_cal':

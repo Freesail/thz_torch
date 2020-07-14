@@ -10,7 +10,7 @@ CONFIG = {
     'fs': 2e3,
     'channel_id': 'single',
     'channel_range': 1000,
-    'bit_rate': 100,
+    'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
     'frame_bits': 50,
 }
