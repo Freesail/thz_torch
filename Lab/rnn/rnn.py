@@ -21,7 +21,7 @@ class ThzTorchDataset(Dataset):
 
     def preprocess(self):
         # choose dims
-        self.data['params'] = self.data['params'][:, 2:]
+        self.data['params'] = self.data['params'][:, [0, 2, 3, 4, 5]]
 
         # normalize
         self.x_mu, self.x_std = self.data['x'].mean(), self.data['x'].std()
@@ -51,6 +51,9 @@ class ThzTorchTestset(Dataset):
         self.trainset = trainset
         with open(os.path.join(path, datafile), 'rb') as f:
             self.data = pickle.load(f)
+        if len(self.data['x'].shape) == 2:
+            n = self.data['x'].shape[0]
+            self.data['x'] = self.data['x'][:, :-1].reshape(n, 54,-1)
         with open(os.path.join(path, labelfile), 'rb') as f:
             self.data['y'] = pickle.load(f)
 
@@ -63,7 +66,7 @@ class ThzTorchTestset(Dataset):
 
     def preprocess(self):
         # choose dims
-        self.data['params'] = self.data['params'][:, 2:]
+        self.data['params'] = self.data['params'][:, [0, 2, 3, 4, 5]]
 
         # normalize
         self.data['x'] = (self.data['x'] - self.trainset.x_mu) / self.trainset.x_std

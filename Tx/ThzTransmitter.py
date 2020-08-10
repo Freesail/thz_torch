@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 thz_transmitter.send_data(frame_str)
 
             ber_labels = np.array(ber_labels)
-            with open('../Rx/result/record/labels.pkl', 'wb') as f:
+            with open('../Rx/result/ber/gt_%smm_%sbps.pkl' % (dist, thz_transmitter.br), 'wb') as f:
                 pickle.dump(ber_labels, f)
         elif 'br' in msg:
             thz_transmitter.br = msg[2:]

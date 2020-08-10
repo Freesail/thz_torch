@@ -53,8 +53,8 @@ class Synchronizer:
             self.switch_mode()
             if self.mode == 'cal':
                 self.cal_synchronizer()
-            elif self.mode == 'data' or self.mode == 'tx_cal' or self.mode == 'record':
-                self.data_txcal_record_synchronizer()
+            elif self.mode in ['data', 'tx_cal', 'record', 'ber']:
+                self.frame_synchronizer()
             else:
                 assert False
 
@@ -122,7 +122,7 @@ class Synchronizer:
 
         # return np.argmin(s1) - np.argmin(s2)
 
-    def data_txcal_record_synchronizer(self):
+    def frame_synchronizer(self):
         self.get_v_header()
         if self.v_header is None:
             print('Synchronizer: need frame header for data_txcal_record sync')
@@ -171,7 +171,6 @@ class Synchronizer:
                 np.savetxt('./result/sync/sync.csv', data_syn, delimiter=',')
                 plt.savefig('./result/sync/sync.png')
                 plt.close()
-                assert False
 
                 data_frame = data_syn
                 if self.mode == 'tx_cal':

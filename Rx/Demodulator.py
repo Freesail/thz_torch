@@ -154,7 +154,8 @@ class Demodulator:
 
     def sample_params(self):
         params = np.zeros(6)
-        params[:2] = self.tx_params[:2]
+        params[0] = np.random.uniform(low=0.8, high=1.0)
+        params[1] = self.tx_params[1]
         params[2] = np.random.uniform(low=2.1e-5, high=2.8e-5)
         popt = np.random.uniform(
             low=[1.4, 48, 9.8],
@@ -162,11 +163,14 @@ class Demodulator:
         params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
         return params
 
-    def record_demodulate(self, frame, save_to='./result/record/dataset.pkl'):
+    def record_demodulate(self, frame, save_to=None):
+        if save_to is None:
+            save_to = './result/ber/%smm_%sbps.pkl' % (self.channel_range, self.bit_rate)
         self.record_cnt += 1
         print('num of frame recorded: %d' % self.record_cnt)
         n = len(self.frame_header) + self.frame_bits
-        v_frame = np.array(frame[:-1]).reshape(n, -1)
+        # v_frame = np.array(frame[:-1]).reshape(n, -1)
+        v_frame = np.array(frame)
         params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
 
         if os.path.exists(save_to):
@@ -271,25 +275,39 @@ class Demodulator:
                     break
 
         print(digits[len(self.frame_header):])
+        return digits
 
-        plt.figure()
-        plt.plot(t_frame, v_f1, label='v1')
-        plt.plot(t_frame, v_f0, label='v0')
-        plt.plot(t_frame, frame, label='measured')
-        plt.savefig('./result/frame/v.png')
-        plt.close()
+        # plt.figure()
+        # plt.plot(t_frame, v_f1, label='v1')
+        # plt.plot(t_frame, v_f0, label='v0')
+        # plt.plot(t_frame, frame, label='measured')
+        # plt.savefig('./result/frame/v.png')
+        # plt.close()
+        #
+        # plt.figure()
+        # plt.plot(t_frame, T_f1, label='T1')
+        # plt.plot(t_frame, T_f0, label='T0')
+        # plt.savefig('./result/frame/T.png')
+        # plt.close()
+        #
+        # plt.figure()
+        # plt.plot(t_frame, pnor_f1, label='P1')
+        # plt.plot(t_frame, pnor_f0, label='P0')
+        # plt.savefig('./result/frame/P.png')
+        # plt.close()
 
-        plt.figure()
-        plt.plot(t_frame, T_f1, label='T1')
-        plt.plot(t_frame, T_f0, label='T0')
-        plt.savefig('./result/frame/T.png')
-        plt.close()
-
-        plt.figure()
-        plt.plot(t_frame, pnor_f1, label='P1')
-        plt.plot(t_frame, pnor_f0, label='P0')
-        plt.savefig('./result/frame/P.png')
-        plt.close()
+    def offline_data_demodulate(self, datafile, path='./result/ber/'):
+        with open(os.path.join(path, datafile), 'rb') as f:
+            dataset = pickle.load(f)
+        n_frame = dataset['x'].shape[0]
+        result = []
+        for i in range(n_frame):
+            frame = dataset['x'][i]
+            self.pyro_params = dataset['params'][i][-3:]
+            result.append(self.data_demodulate(frame))
+        result = np.array(result)
+        with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
+            pickle.dump(result, f)
 
     def sequence_matching(self, vr, v1, v0, mode='l1'):
         if mode == 'l1':
