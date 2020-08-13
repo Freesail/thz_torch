@@ -2,6 +2,7 @@ from serial import *
 import numpy as np
 import pickle
 from time import sleep
+from tqdm import tqdm
 
 # import numpy as np
 # import pickle
@@ -76,7 +77,7 @@ if __name__ == '__main__':
     dist = 2000
 
     frame_bits = 50
-    n_frames = 10
+    n_frames = 20
     frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 
@@ -90,7 +91,7 @@ if __name__ == '__main__':
         elif msg == 'ber':
             ber_labels = []
             n = len(frame_header) + frame_bits
-            for i in range(n_frames):
+            for i in tqdm(range(n_frames)):
                 frame = np.random.randint(2, size=n)
                 frame[:len(frame_header)] = frame_header
                 ber_labels.append(frame)
