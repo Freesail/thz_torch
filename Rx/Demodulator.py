@@ -11,7 +11,7 @@ import os
 class Demodulator:
     def __init__(self, header_queue, sample_freq=1e3,
                  channel_id='single', channel_range=2000, Te=293.15,
-                 frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8):
+                 frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8, version='v1'):
         self.src_queue = queue.Queue(maxsize=0)
         self.header_queue = header_queue
 
@@ -23,19 +23,24 @@ class Demodulator:
         self.frame_header = frame_header
         self.bit_rate = bit_rate
         self.frame_bits = frame_bits
-        self.record_cnt = 0
+        self.version = version
+        self.databuff = None
+        # self.record_cnt = 0
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
         except OSError:
             self.pyro_params = None
 
-        try:
-            self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
-        except OSError:
-            # We, ke, Ce
-            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
-        print(self.tx_params)
+        if version == 'v1':
+            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        else:
+            try:
+                self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+            except OSError:
+                self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+
+        print(self.pyro_params, self.tx_params)
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -45,11 +50,10 @@ class Demodulator:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
                 pickle.dump(self.normalized_rx_power_func, f)
 
-        try:
-            header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
-        except OSError:
-            self.header_update()
-
+        # try:
+        #     header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
+        # except OSError:
+        self.header_update()
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -166,31 +170,42 @@ class Demodulator:
 
     def record_demodulate(self, frame, save_to=None):
         if save_to is None:
-            save_to = './result/ber/%smm_%sbps.pkl' % (self.channel_range, self.bit_rate)
-        self.record_cnt += 1
-        print('num of frame recorded: %d' % self.record_cnt)
+            save_to = './result/ber/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
+        # self.record_cnt += 1
+
         # n = len(self.frame_header) + self.frame_bits
         # v_frame = np.array(frame[:-1]).reshape(n, -1)
         v_frame = np.array(frame)
         params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
 
-        if os.path.exists(save_to):
-            with open(save_to, 'rb') as f:
-                dataset = pickle.load(f)
-            dataset['x'] = np.vstack([dataset['x'], [v_frame]])
-            dataset['params'] = np.vstack([dataset['params'], [params]])
-            print(dataset['x'].shape)
-            print(dataset['params'].shape)
-        else:
-            dataset = {
+        # if os.path.exists(save_to):
+        #     with open(save_to, 'rb') as f:
+        #         dataset = pickle.load(f)
+        #     dataset['x'] = np.vstack([dataset['x'], [v_frame]])
+        #     dataset['params'] = np.vstack([dataset['params'], [params]])
+        #     # print(dataset['x'].shape)
+        #     # print(dataset['params'].shape)
+        # else:
+        #     dataset = {
+        #         'x': np.array([v_frame]),
+        #         'params': np.array([params])
+        #     }
+            # print(dataset['x'].shape)
+            # print(dataset['params'].shape)
+
+        if self.databuff is None:
+            self.databuff = {
                 'x': np.array([v_frame]),
                 'params': np.array([params])
             }
-            print(dataset['x'].shape)
-            print(dataset['params'].shape)
+        else:
+            self.databuff['x'] = np.vstack([self.databuff['x'], [v_frame]])
+            self.databuff['params'] = np.vstack([self.databuff['params'], [params]])
 
         with open(save_to, 'wb') as f:
-            pickle.dump(dataset, f)
+            pickle.dump(self.databuff, f)
+
+        print(self.databuff['x'].shape[0])
 
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
@@ -231,8 +246,8 @@ class Demodulator:
         with open(save_to, 'wb') as f:
             pickle.dump(dataset, f)
 
-    def data_demodulate(self, frame):
-        print('Demodulator: data frame received')
+    def data_demodulate(self, frame, display=True):
+        print('data frame received')
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
         t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
@@ -277,52 +292,55 @@ class Demodulator:
             if i == (len(self.frame_header) - 1):
                 if digits != self.frame_header:
                     print('Demodulator: wrong data frame header detected')
-                    break
+            #         print(digits)
+            #         return (0 for i in range(n))
+        if display:
+            print(digits[len(self.frame_header):])
 
-        print(digits[len(self.frame_header):])
+            plt.figure()
+            plt.plot(t_frame, v_f1, label='v1')
+            plt.plot(t_frame, v_f0, label='v0')
+            plt.plot(t_frame, frame, label='measured')
+            plt.savefig('./result/frame/v.png')
+            plt.close()
 
-        plt.figure()
-        plt.plot(t_frame, v_f1, label='v1')
-        plt.plot(t_frame, v_f0, label='v0')
-        plt.plot(t_frame, frame, label='measured')
-        plt.savefig('./result/frame/v.png')
-        plt.close()
+            plt.figure()
+            plt.plot(t_frame, T_f1, label='T1')
+            plt.plot(t_frame, T_f0, label='T0')
+            plt.savefig('./result/frame/T.png')
+            plt.close()
 
-        plt.figure()
-        plt.plot(t_frame, T_f1, label='T1')
-        plt.plot(t_frame, T_f0, label='T0')
-        plt.savefig('./result/frame/T.png')
-        plt.close()
-
-        plt.figure()
-        plt.plot(t_frame, pnor_f1, label='P1')
-        plt.plot(t_frame, pnor_f0, label='P0')
-        plt.savefig('./result/frame/P.png')
-        plt.close()
+            plt.figure()
+            plt.plot(t_frame, pnor_f1, label='P1')
+            plt.plot(t_frame, pnor_f0, label='P0')
+            plt.savefig('./result/frame/P.png')
+            plt.close()
 
         return digits
 
     def offline_data_demodulate(self, datafile, path='./result/ber/'):
         with open(os.path.join(path, datafile), 'rb') as f:
             dataset = pickle.load(f)
-        print(dataset['x'].shape)
-        print(dataset['params'].shape)
+        # print(dataset['x'].shape)
+        # print(dataset['params'].shape)
         n_frame = dataset['x'].shape[0]
         result = []
         for i in tqdm(range(n_frame)):
             frame = dataset['x'][i]
-            self.pyro_params = dataset['params'][i][-3:]
-            result.append(self.data_demodulate(frame))
+            self.tx_params = dataset['params'][i][:3]
+            self.pyro_params = dataset['params'][i][3:]
+            result.append(self.data_demodulate(frame, display=True))
         result = np.array(result)
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
 
-    def sequence_matching(self, vr, v1, v0, mode='l1'):
+    def sequence_matching(self, vr, v1, v0, mode='l2'):
         if mode == 'l1':
             e1 = np.sum(np.abs(vr - v1))
             e0 = np.sum(np.abs(vr - v0))
-        else:
-            pass
+        elif mode == 'l2':
+            e1 = np.sum(np.power(vr - v1, 2))
+            e0 = np.sum(np.power(vr - v0, 2))
 
         if e1 > e0:
             return 0
@@ -469,12 +487,13 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 1e3,
+        'fs': 1600,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 50,
+        'bit_rate': 80,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
+        'version':'v2'
     }
 
     demo = Demodulator(
@@ -487,7 +506,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_50bps.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_80bps_v2.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
