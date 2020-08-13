@@ -53,7 +53,7 @@ class ThzTorchTestset(Dataset):
             self.data = pickle.load(f)
         if len(self.data['x'].shape) == 2:
             n = self.data['x'].shape[0]
-            self.data['x'] = self.data['x'][:, :-1].reshape(n, 54,-1)
+            self.data['x'] = self.data['x'][:, :-1].reshape(n, 54, -1)
         with open(os.path.join(path, labelfile), 'rb') as f:
             self.data['y'] = pickle.load(f)
 

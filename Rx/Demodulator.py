@@ -157,17 +157,6 @@ class Demodulator:
 
         self.header_update()
 
-    def sample_params(self):
-        params = np.zeros(6)
-        params[0] = np.random.uniform(low=0.8, high=1.0)
-        params[1] = self.tx_params[1]
-        params[2] = np.random.uniform(low=2.1e-5, high=2.8e-5)
-        popt = np.random.uniform(
-            low=[1.4, 48, 9.8],
-            high=[3.2, 63, 10.3])
-        params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
-        return params
-
     def record_demodulate(self, frame, save_to=None):
         if save_to is None:
             save_to = './result/ber/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
@@ -207,6 +196,17 @@ class Demodulator:
 
         print(self.databuff['x'].shape[0])
 
+    def sample_params(self):
+        params = np.zeros(6)
+        params[0] = np.random.uniform(low=0.8, high=0.9)
+        params[1] = self.tx_params[1]
+        params[2] = np.random.uniform(low=2.1e-5, high=2.8e-5)
+        popt = np.random.uniform(
+            low=[0.9, 48, 9.8],
+            high=[1.2, 63, 10.3])
+        params[3:] = np.array([popt[1] + popt[2], popt[1] * popt[2], popt[0] * (popt[1] - popt[2])])
+        return params
+
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
@@ -234,7 +234,7 @@ class Demodulator:
                 v_frame.append(v_bit[:-1])
             v_frame = np.array(v_frame)
             if add_noise:
-                noise = np.random.uniform(low=-0.03, high=0.03, size=v_frame.shape)
+                noise = np.random.uniform(low=-0.02, high=0.02, size=v_frame.shape)
                 v_frame = v_frame + noise
             dataset['x'].append(v_frame)
 
