@@ -2,7 +2,7 @@ import numpy as np
 import threading
 import queue
 from scipy import optimize, integrate, interpolate
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import pickle
 import matplotlib.pyplot as plt
 import os
