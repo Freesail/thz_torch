@@ -17,7 +17,7 @@ class NiAdc(Task):
 
         self._event_freq = event_freq
         self._everyN = int(sample_freq / event_freq)
-        self._adc_buf = np.zeros(self._everyN * 2)
+        self._adc_buf = np.zeros(self._everyN * 10)
         self.dst_queue = None
 
         self.CreateAIVoltageChan("%s/%s" % (device, ch), '', DAQmx_Val_RSE, -vmax, vmax, DAQmx_Val_Volts, None)

@@ -34,7 +34,8 @@ class Demodulator:
             self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
         except OSError:
             # We, ke, Ce
-            self.tx_params = np.array([0.8, 1.033e-3, 1.9e-5])
+            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
+        print(self.tx_params)
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -67,7 +68,7 @@ class Demodulator:
             elif mode == 'record':
                 self.record_demodulate(frame)
 
-    def tx_cal_demodulate(self, frame, num_iter=20, npop=30, alpha=5e-3):
+    def tx_cal_demodulate(self, frame, num_iter=10, npop=20, alpha=1e-2):
         print('Demodulator: tx_cal frame received')
 
         # params
@@ -168,7 +169,7 @@ class Demodulator:
             save_to = './result/ber/%smm_%sbps.pkl' % (self.channel_range, self.bit_rate)
         self.record_cnt += 1
         print('num of frame recorded: %d' % self.record_cnt)
-        n = len(self.frame_header) + self.frame_bits
+        # n = len(self.frame_header) + self.frame_bits
         # v_frame = np.array(frame[:-1]).reshape(n, -1)
         v_frame = np.array(frame)
         params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
@@ -178,11 +179,15 @@ class Demodulator:
                 dataset = pickle.load(f)
             dataset['x'] = np.vstack([dataset['x'], [v_frame]])
             dataset['params'] = np.vstack([dataset['params'], [params]])
+            print(dataset['x'].shape)
+            print(dataset['params'].shape)
         else:
             dataset = {
                 'x': np.array([v_frame]),
                 'params': np.array([params])
             }
+            print(dataset['x'].shape)
+            print(dataset['params'].shape)
 
         with open(save_to, 'wb') as f:
             pickle.dump(dataset, f)
@@ -275,33 +280,36 @@ class Demodulator:
                     break
 
         print(digits[len(self.frame_header):])
-        return digits
 
-        # plt.figure()
-        # plt.plot(t_frame, v_f1, label='v1')
-        # plt.plot(t_frame, v_f0, label='v0')
-        # plt.plot(t_frame, frame, label='measured')
-        # plt.savefig('./result/frame/v.png')
-        # plt.close()
-        #
-        # plt.figure()
-        # plt.plot(t_frame, T_f1, label='T1')
-        # plt.plot(t_frame, T_f0, label='T0')
-        # plt.savefig('./result/frame/T.png')
-        # plt.close()
-        #
-        # plt.figure()
-        # plt.plot(t_frame, pnor_f1, label='P1')
-        # plt.plot(t_frame, pnor_f0, label='P0')
-        # plt.savefig('./result/frame/P.png')
-        # plt.close()
+        plt.figure()
+        plt.plot(t_frame, v_f1, label='v1')
+        plt.plot(t_frame, v_f0, label='v0')
+        plt.plot(t_frame, frame, label='measured')
+        plt.savefig('./result/frame/v.png')
+        plt.close()
+
+        plt.figure()
+        plt.plot(t_frame, T_f1, label='T1')
+        plt.plot(t_frame, T_f0, label='T0')
+        plt.savefig('./result/frame/T.png')
+        plt.close()
+
+        plt.figure()
+        plt.plot(t_frame, pnor_f1, label='P1')
+        plt.plot(t_frame, pnor_f0, label='P0')
+        plt.savefig('./result/frame/P.png')
+        plt.close()
+
+        return digits
 
     def offline_data_demodulate(self, datafile, path='./result/ber/'):
         with open(os.path.join(path, datafile), 'rb') as f:
             dataset = pickle.load(f)
+        print(dataset['x'].shape)
+        print(dataset['params'].shape)
         n_frame = dataset['x'].shape[0]
         result = []
-        for i in range(n_frame):
+        for i in tqdm(range(n_frame)):
             frame = dataset['x'][i]
             self.pyro_params = dataset['params'][i][-3:]
             result.append(self.data_demodulate(frame))
@@ -463,7 +471,7 @@ if __name__ == '__main__':
     cfg = {
         'fs': 1e3,
         'channel_id': 'single',
-        'channel_range': 1000,
+        'channel_range': 2000,
         'bit_rate': 50,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
@@ -479,7 +487,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.simulate_frame(n_frame=100)
+    demo.offline_data_demodulate(datafile='2000mm_50bps.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()

@@ -90,7 +90,7 @@ class Synchronizer:
         cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
         cal_diff = np.diff(cal_syn) * self.fs
 
-        if np.all(cal_diff < -20):
+        if np.all(cal_diff < -5):  # -20 before
             cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                 cal_frame.append(self.src_queue.get(block=True, timeout=None))
@@ -136,7 +136,7 @@ class Synchronizer:
             if self.mode == 'tx_cal':
                 syn_threshold = self.syn_threshold * 10.0
             else:
-                syn_threshold = self.syn_threshold * 2.0
+                syn_threshold = self.syn_threshold * 5 # * 2.0
 
             # print(e)
             if e < syn_threshold:

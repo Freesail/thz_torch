@@ -7,9 +7,9 @@ import time
 from Rx.VirtualOsc import VirtualOsc
 
 CONFIG = {
-    'fs': 2e3,
+    'fs': 1e3,
     'channel_id': 'single',
-    'channel_range': 1000,
+    'channel_range': 2000,
     'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
     'frame_bits': 50,
@@ -19,7 +19,7 @@ CONFIG = {
 class ThzReceiver:
     def __init__(self, fs, bit_rate, frame_header, frame_bits, channel_id, channel_range):
         self.adc = NiAdc(
-            sample_freq=fs, vmax=5.0)
+            sample_freq=fs, vmax=2.0)
 
         self.synchronizer = Synchronizer(
             sample_freq=fs,

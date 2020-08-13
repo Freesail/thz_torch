@@ -15,7 +15,7 @@ tableau20 = np.array([(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187
 
 class VirtualOsc:
     # xmax is ms, sample_freq in Hz
-    def __init__(self, sample_freq=1E3, xmax=1000, ymax=2.5):
+    def __init__(self, sample_freq=1E3, xmax=1000, ymax=0.1):
         self._fs = sample_freq
         self._size = int(xmax / 1000 * sample_freq)
         self.src_queue = deque([0.0] * self._size, maxlen=self._size)
@@ -26,6 +26,8 @@ class VirtualOsc:
 
         self._xmajor_loc = xmax / 10
         self._xminor_loc = self._xmajor_loc / 5
+        # self._ymajor_loc = ymax / 10
+        # self._yminor_loc = self._ymajor_loc / 5
 
         self._fig, self._ax = plt.subplots()
         self._line, = self._ax.plot([], [], lw=0.5, color=tableau20[0])
@@ -50,6 +52,8 @@ class VirtualOsc:
         self._ax.set_ylabel('Voltage (V)')
         self._ax.xaxis.set_major_locator(ticker.MultipleLocator(self._xmajor_loc))
         self._ax.xaxis.set_minor_locator(ticker.MultipleLocator(self._xminor_loc))
+        # self._ax.yaxis.set_major_locator(ticker.MultipleLocator(self._ymajor_loc))
+        # self._ax.yaxis.set_minor_locator(ticker.MultipleLocator(self._yminor_loc))
 
         self._line.set_data(np.arange(0, self._size) * self._deltaT, list(self.src_queue))
         return self._line,
@@ -61,7 +65,7 @@ class VirtualOsc:
 
 if __name__ == '__main__':
     test_osc = VirtualOsc()
-    test_adc = NiAdc(vmax=5.0)
+    test_adc = NiAdc(vmax=2.0)
     test_adc.dst_queue = test_osc.src_queue
     test_adc.StartTask()
     plt.show()
