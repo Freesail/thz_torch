@@ -24,6 +24,7 @@ class Demodulator:
         self.bit_rate = bit_rate
         self.frame_bits = frame_bits
         self.version = version
+        self.databuff = None
         # self.record_cnt = 0
 
         try:
@@ -34,7 +35,7 @@ class Demodulator:
         #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
         # except OSError:
         #     # We, ke, Ce
-        self.tx_params = np.array([0.85, 1.033e-3, 1.9e-5])
+        self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
         print(self.pyro_params, self.tx_params)
 
         try:
@@ -74,7 +75,7 @@ class Demodulator:
         lb = np.array([0.80, -1e5, 1.5e-5])
         ub = np.array([0.96, 1e5, 3.1e-5])
         sigma = 20
-        dim = [0, 2]
+        dim = [2]
 
         print('old tx_params: ', self.tx_params)
         x_init = self.tx_params[dim]
@@ -83,7 +84,7 @@ class Demodulator:
         sigma = (ub - lb) / sigma
 
         def error_func(x):
-            pred, _ = self.header_predict(We=x[0], ke=self.tx_params[1], Ce=x[1])
+            pred, _ = self.header_predict(We=self.tx_params[0], ke=self.tx_params[1], Ce=x[0])
             error = np.mean(np.abs(pred - frame))
             return error, pred
 
@@ -173,25 +174,34 @@ class Demodulator:
         v_frame = np.array(frame)
         params = np.concatenate((self.tx_params, self.pyro_params), axis=None)
 
-        if os.path.exists(save_to):
-            with open(save_to, 'rb') as f:
-                dataset = pickle.load(f)
-            dataset['x'] = np.vstack([dataset['x'], [v_frame]])
-            dataset['params'] = np.vstack([dataset['params'], [params]])
+        # if os.path.exists(save_to):
+        #     with open(save_to, 'rb') as f:
+        #         dataset = pickle.load(f)
+        #     dataset['x'] = np.vstack([dataset['x'], [v_frame]])
+        #     dataset['params'] = np.vstack([dataset['params'], [params]])
+        #     # print(dataset['x'].shape)
+        #     # print(dataset['params'].shape)
+        # else:
+        #     dataset = {
+        #         'x': np.array([v_frame]),
+        #         'params': np.array([params])
+        #     }
             # print(dataset['x'].shape)
             # print(dataset['params'].shape)
-        else:
-            dataset = {
+
+        if self.databuff is None:
+            self.databuff = {
                 'x': np.array([v_frame]),
                 'params': np.array([params])
             }
-            # print(dataset['x'].shape)
-            # print(dataset['params'].shape)
+        else:
+            self.databuff['x'] = np.vstack([self.databuff['x'], [v_frame]])
+            self.databuff['params'] = np.vstack([self.databuff['params'], [params]])
 
         with open(save_to, 'wb') as f:
-            pickle.dump(dataset, f)
+            pickle.dump(self.databuff, f)
 
-        print(dataset['x'].shape[0])
+        print(self.databuff['x'].shape[0])
 
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
@@ -233,7 +243,7 @@ class Demodulator:
             pickle.dump(dataset, f)
 
     def data_demodulate(self, frame, display=True):
-        print('Demodulator: data frame received')
+        print('data frame received')
         n = len(self.frame_header) + self.frame_bits
         spb = round(self.fs / self.bit_rate)
         t = np.linspace(start=0, stop=1.0 / self.bit_rate, num=spb + 1)
@@ -275,10 +285,11 @@ class Demodulator:
             pnor_f1[s_idx:e_idx] = interpolate.interp1d(info1[0], info1[2], bounds_error=True)(t)
             pnor_f0[s_idx:e_idx] = interpolate.interp1d(info0[0], info0[2], bounds_error=True)(t)
 
-            if i == (len(self.frame_header) - 1):
-                if digits != self.frame_header:
-                    print('Demodulator: wrong data frame header detected')
-                    break
+            # if i == (len(self.frame_header) - 1):
+            #     if digits != self.frame_header:
+            #         print('Demodulator: wrong data frame header detected')
+            #         print(digits)
+            #         return (0 for i in range(n))
         if display:
             print(digits[len(self.frame_header):])
         #
@@ -319,12 +330,13 @@ class Demodulator:
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
 
-    def sequence_matching(self, vr, v1, v0, mode='l1'):
+    def sequence_matching(self, vr, v1, v0, mode='l2'):
         if mode == 'l1':
             e1 = np.sum(np.abs(vr - v1))
             e0 = np.sum(np.abs(vr - v0))
-        else:
-            pass
+        elif mode == 'l2':
+            e1 = np.sum(np.power(vr - v1, 2))
+            e0 = np.sum(np.power(vr - v0, 2))
 
         if e1 > e0:
             return 0
@@ -474,7 +486,7 @@ if __name__ == '__main__':
         'fs': 1e3,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 50,
+        'bit_rate': 100,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
     }
@@ -489,7 +501,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_50bps_v2.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_100bps_v2.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()

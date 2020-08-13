@@ -91,7 +91,7 @@ class Synchronizer:
         cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
         cal_diff = np.diff(cal_syn) * self.fs
 
-        if np.all(cal_diff < -7):  # -20 before
+        if np.all(cal_diff < -5):  # -20 before
             cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                 cal_frame.append(self.src_queue.get(block=True, timeout=None))
@@ -135,12 +135,12 @@ class Synchronizer:
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 5.0
+                syn_threshold = self.syn_threshold * 7.0
             else:
                 if self.version == 'v1':
-                    syn_threshold = self.syn_threshold * 4.0
+                    syn_threshold = self.syn_threshold * 7.0
                 else:
-                    syn_threshold = self.syn_threshold * 2.0
+                    syn_threshold = self.syn_threshold * 5.0
 
             # print(e)
             if e < syn_threshold:
@@ -184,10 +184,12 @@ class Synchronizer:
                     data_frame.append(self.src_queue.get(block=True, timeout=None))
 
                 if self.mode != 'tx_cal':
+                    print('here')
                     self.dst_queue.put((self.mode, data_frame), block=True, timeout=None)
 
                 for i in range(self.data_reset_horizon):
                     self.src_queue.get(block=True, timeout=None)
+
                 self.refill = True
             else:
                 self.syn_queue.append(self.src_queue.get(block=True, timeout=None))

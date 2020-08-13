@@ -1,13 +1,12 @@
 import pickle
 import numpy as np
 
-with open('gt_2000mm_50bps.pkl', 'rb') as f:
-    gt = pickle.load(f)
+if __name__ == '__main__':
+    file = '2000mm_50bps_v2.pkl'
+    with open('gt_%s' % file, 'rb') as f:
+        gt = pickle.load(f)
 
-with open('offline_2000mm_50bps.pkl', 'rb') as f:
-    offline = pickle.load(f)
+    with open('offline_%s' % file, 'rb') as f:
+        offline = pickle.load(f)
 
-print(np.sum(offline == gt)/gt.shape[0]/gt.shape[1])
-
-offline[0, 0] = 1 - offline[0, 0]
-print(np.sum(offline == gt)/gt.shape[0]/gt.shape[1])
+    print(np.sum(offline == gt) / gt.shape[0] / gt.shape[1])

@@ -7,10 +7,10 @@ import time
 from Rx.VirtualOsc import VirtualOsc
 
 CONFIG = {
-    'fs': 1e3,
+    'fs': 1600,
     'channel_id': 'single',
     'channel_range': 2000,
-    'bit_rate': 50,
+    'bit_rate': 80,
     'frame_header': (1, 1, 1, 0),
     'frame_bits': 50,
     'version': 'v2'

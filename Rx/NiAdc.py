@@ -45,5 +45,6 @@ class NiAdc(Task):
         print('NiAdC: starts')
         self.StartTask()
 
+
 if __name__ == '__main__':
     pass
