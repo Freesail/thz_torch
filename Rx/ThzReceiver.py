@@ -13,11 +13,12 @@ CONFIG = {
     'bit_rate': 50,
     'frame_header': (1, 1, 1, 0),
     'frame_bits': 50,
+    'version': 'v2'
 }
 
 
 class ThzReceiver:
-    def __init__(self, fs, bit_rate, frame_header, frame_bits, channel_id, channel_range):
+    def __init__(self, fs, bit_rate, frame_header, frame_bits, channel_id, channel_range, version):
         self.adc = NiAdc(
             sample_freq=fs, vmax=2.0)
 
@@ -25,7 +26,8 @@ class ThzReceiver:
             sample_freq=fs,
             bit_rate=bit_rate,
             frame_header=frame_header,
-            frame_bits=frame_bits
+            frame_bits=frame_bits,
+            version=version
         )
 
         self.demodulator = Demodulator(
@@ -35,7 +37,8 @@ class ThzReceiver:
             frame_header=frame_header,
             frame_bits=frame_bits,
             channel_id=channel_id,
-            channel_range=channel_range
+            channel_range=channel_range,
+            version=version
         )
 
         self.adc.dst_queue = self.synchronizer.src_queue

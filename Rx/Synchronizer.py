@@ -13,7 +13,7 @@ class Synchronizer:
     def __init__(self, sample_freq=1e3, mode='data',
                  cal_syn_t=5e-3, cal_frame_t=5e-1, cal_reset_t=8e-1,
                  frame_header=(1, 1, 1, 0), bit_rate=50, frame_bits=8, data_reset_t=8e-1,
-                 syn_threshold=0.15):
+                 syn_threshold=0.15, version='v1'):
         self.src_queue = queue.Queue(maxsize=0)
         self.mode_queue = queue.Queue(maxsize=0)
         self.header_queue = queue.Queue(maxsize=0)
@@ -42,6 +42,7 @@ class Synchronizer:
         self.refill = True
 
         self.v_header = None
+        self.version = version
         self.thread = threading.Thread(target=self._synchronizer)
 
     def start(self):
@@ -90,7 +91,7 @@ class Synchronizer:
         cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
         cal_diff = np.diff(cal_syn) * self.fs
 
-        if np.all(cal_diff < -5):  # -20 before
+        if np.all(cal_diff < -7):  # -20 before
             cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                 cal_frame.append(self.src_queue.get(block=True, timeout=None))
@@ -136,7 +137,10 @@ class Synchronizer:
             if self.mode == 'tx_cal':
                 syn_threshold = self.syn_threshold * 5.0
             else:
-                syn_threshold = self.syn_threshold * 2.0
+                if self.version == 'v1':
+                    syn_threshold = self.syn_threshold * 4.0
+                else:
+                    syn_threshold = self.syn_threshold * 2.0
 
             # print(e)
             if e < syn_threshold:
