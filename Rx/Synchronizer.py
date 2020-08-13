@@ -39,7 +39,7 @@ class Synchronizer:
         self.syn_queue_len = max(self.cal_syn_horizon, self.data_syn_horizon)
         self.syn_queue = deque([0.0] * self.syn_queue_len, maxlen=self.syn_queue_len)
         self.syn_threshold = syn_threshold
-        self.refill = True
+        # self.refill = True
 
         self.v_header = None
         self.version = version
@@ -79,14 +79,14 @@ class Synchronizer:
         except queue.Empty:
             pass
 
-    def refill_syn_queue(self):
-        for i in range(self.syn_queue_len):
-            self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
-        self.refill = False
+    # def refill_syn_queue(self):
+    #     for i in range(self.syn_queue_len):
+    #         self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
+    #     self.refill = False
 
     def cal_synchronizer(self):
-        if self.refill:
-            self.refill_syn_queue()
+        # if self.refill:
+        #     self.refill_syn_queue()
 
         cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
         cal_diff = np.diff(cal_syn) * self.fs
@@ -94,12 +94,14 @@ class Synchronizer:
         if np.all(cal_diff < -5):  # -20 before
             cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
-                cal_frame.append(self.src_queue.get(block=True, timeout=None))
+                v = self.src_queue.get(block=True, timeout=None)
+                cal_frame.append(v)
+                self.syn_queue.append(v)
             self.dst_queue.put(('cal', cal_frame), block=True, timeout=None)
 
             for i in range(self.cal_reset_horizon):
-                self.src_queue.get(block=True, timeout=None)
-            self.refill = True
+                self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
+            # self.refill = True
         else:
             self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
@@ -128,8 +130,8 @@ class Synchronizer:
         if self.v_header is None:
             print('Synchronizer: need frame header for data_txcal_record sync')
         else:
-            if self.refill:
-                self.refill_syn_queue()
+            # if self.refill:
+            #     self.refill_syn_queue()
 
             data_syn = list(self.syn_queue)[-self.data_syn_horizon:]
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
@@ -181,15 +183,17 @@ class Synchronizer:
                     self.dst_queue.put((self.mode, np.array(data_syn)), block=True, timeout=None)
 
                 for i in range(self.data_frame_horizon - self.data_syn_horizon):
-                    data_frame.append(self.src_queue.get(block=True, timeout=None))
+                    v = self.src_queue.get(block=True, timeout=None)
+                    data_frame.append(v)
+                    self.syn_queue.append(v)
 
                 if self.mode != 'tx_cal':
-                    print('here')
+                    # print('here')
                     self.dst_queue.put((self.mode, data_frame), block=True, timeout=None)
 
                 for i in range(self.data_reset_horizon):
-                    self.src_queue.get(block=True, timeout=None)
+                    self.syn_queue.append(self.src_queue.get(block=True, timeout=None))
 
-                self.refill = True
+                # self.refill = True
             else:
                 self.syn_queue.append(self.src_queue.get(block=True, timeout=None))

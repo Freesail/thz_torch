@@ -31,11 +31,15 @@ class Demodulator:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
         except OSError:
             self.pyro_params = None
-        # try:
-        #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
-        # except OSError:
-        #     # We, ke, Ce
-        self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+
+        if version == 'v1':
+            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        else:
+            try:
+                self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+            except OSError:
+                self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+
         print(self.pyro_params, self.tx_params)
 
         try:
@@ -75,7 +79,7 @@ class Demodulator:
         lb = np.array([0.80, -1e5, 1.5e-5])
         ub = np.array([0.96, 1e5, 3.1e-5])
         sigma = 20
-        dim = [2]
+        dim = [0, 2]
 
         print('old tx_params: ', self.tx_params)
         x_init = self.tx_params[dim]
@@ -84,7 +88,7 @@ class Demodulator:
         sigma = (ub - lb) / sigma
 
         def error_func(x):
-            pred, _ = self.header_predict(We=self.tx_params[0], ke=self.tx_params[1], Ce=x[0])
+            pred, _ = self.header_predict(We=x[0], ke=self.tx_params[1], Ce=x[1])
             error = np.mean(np.abs(pred - frame))
             return error, pred
 
@@ -285,32 +289,32 @@ class Demodulator:
             pnor_f1[s_idx:e_idx] = interpolate.interp1d(info1[0], info1[2], bounds_error=True)(t)
             pnor_f0[s_idx:e_idx] = interpolate.interp1d(info0[0], info0[2], bounds_error=True)(t)
 
-            # if i == (len(self.frame_header) - 1):
-            #     if digits != self.frame_header:
-            #         print('Demodulator: wrong data frame header detected')
+            if i == (len(self.frame_header) - 1):
+                if digits != self.frame_header:
+                    print('Demodulator: wrong data frame header detected')
             #         print(digits)
             #         return (0 for i in range(n))
         if display:
             print(digits[len(self.frame_header):])
-        #
-        #     plt.figure()
-        #     plt.plot(t_frame, v_f1, label='v1')
-        #     plt.plot(t_frame, v_f0, label='v0')
-        #     plt.plot(t_frame, frame, label='measured')
-        #     plt.savefig('./result/frame/v.png')
-        #     plt.close()
-        #
-        #     plt.figure()
-        #     plt.plot(t_frame, T_f1, label='T1')
-        #     plt.plot(t_frame, T_f0, label='T0')
-        #     plt.savefig('./result/frame/T.png')
-        #     plt.close()
-        #
-        #     plt.figure()
-        #     plt.plot(t_frame, pnor_f1, label='P1')
-        #     plt.plot(t_frame, pnor_f0, label='P0')
-        #     plt.savefig('./result/frame/P.png')
-        #     plt.close()
+
+            plt.figure()
+            plt.plot(t_frame, v_f1, label='v1')
+            plt.plot(t_frame, v_f0, label='v0')
+            plt.plot(t_frame, frame, label='measured')
+            plt.savefig('./result/frame/v.png')
+            plt.close()
+
+            plt.figure()
+            plt.plot(t_frame, T_f1, label='T1')
+            plt.plot(t_frame, T_f0, label='T0')
+            plt.savefig('./result/frame/T.png')
+            plt.close()
+
+            plt.figure()
+            plt.plot(t_frame, pnor_f1, label='P1')
+            plt.plot(t_frame, pnor_f0, label='P0')
+            plt.savefig('./result/frame/P.png')
+            plt.close()
 
         return digits
 
@@ -325,7 +329,7 @@ class Demodulator:
             frame = dataset['x'][i]
             self.tx_params = dataset['params'][i][:3]
             self.pyro_params = dataset['params'][i][3:]
-            result.append(self.data_demodulate(frame, display=False))
+            result.append(self.data_demodulate(frame, display=True))
         result = np.array(result)
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
@@ -483,12 +487,13 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 1e3,
+        'fs': 1600,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 100,
+        'bit_rate': 80,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
+        'version':'v2'
     }
 
     demo = Demodulator(
@@ -501,7 +506,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_100bps_v2.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_80bps_v2.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()

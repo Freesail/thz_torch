@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 
 if __name__ == '__main__':
-    file = '2000mm_50bps_v2.pkl'
+    file = '2000mm_80bps_v2.pkl'
     with open('gt_%s' % file, 'rb') as f:
         gt = pickle.load(f)
 
