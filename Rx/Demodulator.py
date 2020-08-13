@@ -23,7 +23,7 @@ class Demodulator:
         self.frame_header = frame_header
         self.bit_rate = bit_rate
         self.frame_bits = frame_bits
-        self.record_cnt = 0
+        # self.record_cnt = 0
 
         try:
             self.pyro_params = np.genfromtxt('./result/cal/pyro_params.csv', delimiter=',')
@@ -35,7 +35,7 @@ class Demodulator:
         except OSError:
             # We, ke, Ce
             self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
-        print(self.tx_params)
+        # print(self.tx_params)
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -45,11 +45,10 @@ class Demodulator:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'wb') as f:
                 pickle.dump(self.normalized_rx_power_func, f)
 
-        try:
-            header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
-        except OSError:
-            self.header_update()
-
+        # try:
+        #     header_queue.put(np.genfromtxt('./result/header/header_pred.csv', delimiter=','))
+        # except OSError:
+        self.header_update()
         self.thread = threading.Thread(target=self.demodulate)
 
     def start(self):
@@ -167,8 +166,8 @@ class Demodulator:
     def record_demodulate(self, frame, save_to=None):
         if save_to is None:
             save_to = './result/ber/%smm_%sbps.pkl' % (self.channel_range, self.bit_rate)
-        self.record_cnt += 1
-        print('num of frame recorded: %d' % self.record_cnt)
+        # self.record_cnt += 1
+
         # n = len(self.frame_header) + self.frame_bits
         # v_frame = np.array(frame[:-1]).reshape(n, -1)
         v_frame = np.array(frame)
@@ -179,18 +178,20 @@ class Demodulator:
                 dataset = pickle.load(f)
             dataset['x'] = np.vstack([dataset['x'], [v_frame]])
             dataset['params'] = np.vstack([dataset['params'], [params]])
-            print(dataset['x'].shape)
-            print(dataset['params'].shape)
+            # print(dataset['x'].shape)
+            # print(dataset['params'].shape)
         else:
             dataset = {
                 'x': np.array([v_frame]),
                 'params': np.array([params])
             }
-            print(dataset['x'].shape)
-            print(dataset['params'].shape)
+            # print(dataset['x'].shape)
+            # print(dataset['params'].shape)
 
         with open(save_to, 'wb') as f:
             pickle.dump(dataset, f)
+
+        print(dataset.shape[0])
 
     def simulate_frame(self, n_frame, save_to='./result/simulate/dataset.pkl', add_noise=True):
         n = len(self.frame_header) + self.frame_bits
@@ -305,12 +306,13 @@ class Demodulator:
     def offline_data_demodulate(self, datafile, path='./result/ber/'):
         with open(os.path.join(path, datafile), 'rb') as f:
             dataset = pickle.load(f)
-        print(dataset['x'].shape)
-        print(dataset['params'].shape)
+        # print(dataset['x'].shape)
+        # print(dataset['params'].shape)
         n_frame = dataset['x'].shape[0]
         result = []
         for i in tqdm(range(n_frame)):
             frame = dataset['x'][i]
+            self.tx_params = np.array([0.8978, 1.033e-3, 1.9e-5])
             self.pyro_params = dataset['params'][i][-3:]
             result.append(self.data_demodulate(frame))
         result = np.array(result)

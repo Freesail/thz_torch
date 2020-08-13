@@ -53,7 +53,7 @@ class Synchronizer:
             self.switch_mode()
             if self.mode == 'cal':
                 self.cal_synchronizer()
-            elif self.mode in ['data', 'tx_cal', 'record', 'ber']:
+            elif self.mode in ['data', 'tx_cal', 'record']:
                 self.frame_synchronizer()
             else:
                 assert False
@@ -134,9 +134,9 @@ class Synchronizer:
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 10.0
+                syn_threshold = self.syn_threshold * 5.0
             else:
-                syn_threshold = self.syn_threshold * 5 # * 2.0
+                syn_threshold = self.syn_threshold * 2.0
 
             # print(e)
             if e < syn_threshold:
