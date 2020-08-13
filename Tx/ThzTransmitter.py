@@ -73,10 +73,10 @@ if __name__ == '__main__':
     thz_transmitter = ThzTransmitter()
 
     ch = 0
-    dist = 1000
+    dist = 2000
 
     frame_bits = 50
-    n_frames = 200
+    n_frames = 500
     frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 
