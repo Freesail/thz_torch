@@ -40,7 +40,7 @@ class Demodulator:
             except OSError:
                 self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
 
-        print(self.pyro_params, self.tx_params)
+        # print(self.pyro_params, self.tx_params)
 
         try:
             with open('./result/rx_func/%s_%s.pkl' % (channel_id, channel_range), 'rb') as f:
@@ -133,7 +133,7 @@ class Demodulator:
         plt.close()
         np.savetxt('./result/header/header_pred.csv', v_header, delimiter=',')
         self.header_queue.put(v_header)
-        print('header update done.')
+        # print('header update done.')
 
     def cal_demodulate(self, frame):
         print('Demodulator: cal frame received')
