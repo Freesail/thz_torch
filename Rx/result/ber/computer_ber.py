@@ -9,5 +9,7 @@ if __name__ == '__main__':
     with open('offline_%s' % file, 'rb') as f:
         offline = pickle.load(f)
 
-    print(gt.shape[0])
+    gt = gt[:, 4:]
+    offline = offline[:, 4:]
+    # print(gt.shape[0])
     print(np.sum(offline == gt) / gt.shape[0] / gt.shape[1])
