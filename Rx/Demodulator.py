@@ -2,7 +2,7 @@ import numpy as np
 import threading
 import queue
 from scipy import optimize, integrate, interpolate
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
 import os
@@ -35,10 +35,10 @@ class Demodulator:
         if version == 'v1':
             self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
         else:
-            try:
-                self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
-            except OSError:
-                self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+            # try:
+            #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+            # except OSError:
+            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
 
         # print(self.pyro_params, self.tx_params)
 
@@ -334,7 +334,7 @@ class Demodulator:
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
 
-    def sequence_matching(self, vr, v1, v0, mode='l2'):
+    def sequence_matching(self, vr, v1, v0, mode='l1'):
         if mode == 'l1':
             e1 = np.sum(np.abs(vr - v1))
             e0 = np.sum(np.abs(vr - v0))
