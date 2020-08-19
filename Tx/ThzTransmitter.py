@@ -77,7 +77,7 @@ if __name__ == '__main__':
     dist = 2000
 
     frame_bits = 50
-    n_frames = 20
+    n_frames = 100
     frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 
