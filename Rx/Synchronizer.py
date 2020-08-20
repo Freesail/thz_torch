@@ -137,12 +137,12 @@ class Synchronizer:
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 5.0
+                syn_threshold = self.syn_threshold * 3.0
             else:
                 if self.version == 'v1':
-                    syn_threshold = self.syn_threshold * 5.0
+                    syn_threshold = self.syn_threshold * 3.0
                 else:
-                    syn_threshold = self.syn_threshold * 3.25
+                    syn_threshold = self.syn_threshold * 1.75
 
             # print(e)
             if e < syn_threshold:

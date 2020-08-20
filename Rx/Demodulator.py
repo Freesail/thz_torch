@@ -490,13 +490,13 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 2500,
+        'fs': 1600,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 125,
+        'bit_rate': 80,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
-        'version': 'v2'
+        'version': 'v1'
     }
 
     demo = Demodulator(
@@ -509,7 +509,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_125bps_v2.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_80bps_v1.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
