@@ -91,7 +91,7 @@ class Synchronizer:
         cal_syn = list(self.syn_queue)[-self.cal_syn_horizon:]
         cal_diff = np.diff(cal_syn) * self.fs
 
-        if np.all(cal_diff < -7):  # -20 before
+        if np.all(cal_diff < -6):  # -20 before
             cal_frame = cal_syn
             for i in range(self.cal_frame_horizon - self.cal_syn_horizon):
                 v = self.src_queue.get(block=True, timeout=None)
@@ -122,7 +122,7 @@ class Synchronizer:
         shift = np.array(bkp1) - np.array(bkp2)
         shift = shift[shift >= 0]
         return int(np.argmax(np.bincount(shift))), bkp1, bkp2
-
+        # return np.max(shift), bkp1, bkp2
         # return np.argmin(s1) - np.argmin(s2)
 
     def frame_synchronizer(self):
@@ -137,12 +137,12 @@ class Synchronizer:
             e = np.mean(np.abs(self.v_header - np.array(data_syn)))
 
             if self.mode == 'tx_cal':
-                syn_threshold = self.syn_threshold * 3.0
+                syn_threshold = self.syn_threshold * 5.0
             else:
                 if self.version == 'v1':
-                    syn_threshold = self.syn_threshold * 3.0
+                    syn_threshold = self.syn_threshold * 5.0
                 else:
-                    syn_threshold = self.syn_threshold * 1.5
+                    syn_threshold = self.syn_threshold * 3.25
 
             # print(e)
             if e < syn_threshold:
