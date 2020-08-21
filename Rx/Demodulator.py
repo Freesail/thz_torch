@@ -32,15 +32,14 @@ class Demodulator:
         except OSError:
             self.pyro_params = None
 
-        # if version == 'v1':
-        #     self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
-        # else:
-        #     # try:
-        #     #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
-        #     # except OSError:
-        #         self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
-        # self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
-        self.tx_params = np.array([0.89, 1.03300000e-03, 2.2e-5])
+        if version == 'v1':
+            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        else:
+            # try:
+            #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+            # except OSError:
+            self.tx_params = np.array([0.89, 1.033e-3, 2.2e-5])
+            # self.tx_params = np.array([9.23822489e-01, 1.03300000e-03, 2.59729681e-05])
 
         # print(self.pyro_params, self.tx_params)
 
@@ -161,7 +160,7 @@ class Demodulator:
 
     def record_demodulate(self, frame, save_to=None):
         if save_to is None:
-            save_to = './result/ber_wireless/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
+            save_to = './result/ber_2500/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
         # self.record_cnt += 1
 
         # n = len(self.frame_header) + self.frame_bits
@@ -322,7 +321,7 @@ class Demodulator:
 
         return digits
 
-    def offline_data_demodulate(self, datafile, path='./result/ber_wireless/'):
+    def offline_data_demodulate(self, datafile, path='./result/ber_2500/'):
         with open(os.path.join(path, datafile), 'rb') as f:
             dataset = pickle.load(f)
         # print(dataset['x'].shape)
@@ -331,9 +330,18 @@ class Demodulator:
         result = []
         for i in tqdm(range(n_frame)):
             frame = dataset['x'][i]
-            # self.tx_params = dataset['params'][i][:3]
             self.pyro_params = dataset['params'][i][3:]
-            result.append(self.data_demodulate(frame, display=True))
+            v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
+            err = np.zeros(10)
+            for j in range(10):
+                err[j] = np.sum(np.abs(frame[j:j+v_header.shape[0]], v_header))
+            print(err)
+            shift = np.argmin(err)
+            print(shift)
+            syn_frame = np.roll(frame, -shift)
+
+            # self.tx_params = dataset['params'][i][:3]
+            result.append(self.data_demodulate(syn_frame, display=True))
         result = np.array(result)
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
@@ -491,13 +499,13 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 2500,
+        'fs': 1000,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 125,
+        'bit_rate': 50,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
-        'version': 'v1'
+        'version': 'v2'
     }
 
     demo = Demodulator(
@@ -507,10 +515,11 @@ if __name__ == '__main__':
         frame_header=cfg['frame_header'],
         frame_bits=cfg['frame_bits'],
         channel_id=cfg['channel_id'],
-        channel_range=cfg['channel_range']
+        channel_range=cfg['channel_range'],
+        version=cfg['version']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_125bps_v1.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_50bps_v2.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
