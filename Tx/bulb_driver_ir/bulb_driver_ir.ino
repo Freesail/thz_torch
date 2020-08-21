@@ -4,7 +4,7 @@
 #define buf_size  3000
 #define T_reset   800
 
-double T_p = 1000 / bit_rate;
+double T_p = 1000000 / bit_rate;
 
 void setup() {
   String msg;
@@ -49,19 +49,19 @@ void loop() {
     }
     if (msg == "br50")
     {
-        T_p = 1000 / 50;
+        T_p = 1000000 / 50;
     }
     if (msg == "br80")
     {
-        T_p = 1000 / 80;
+        T_p = 1000000 / 80;
     }
     if (msg == "br100")
     {
-        T_p = 1000 / 100;
+        T_p = 1000000 / 100;
     }
     if (msg == "br125")
     {
-        T_p = 1000 / 125;
+        T_p = 1000000 / 125;
     }
     Serial.println("Done");
   }
@@ -75,7 +75,7 @@ void send_bit(byte x) {
   else {
     digitalWrite(d_port, HIGH);
   }
-  delay(T_p);
+  delayMicroseconds(T_p);
   return;
 }
 
