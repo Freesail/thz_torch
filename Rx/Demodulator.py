@@ -32,14 +32,15 @@ class Demodulator:
         except OSError:
             self.pyro_params = None
 
-        if version == 'v1':
-            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
-        else:
-            # try:
-            #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
-            # except OSError:
-            self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
-            # self.tx_params = np.array([9.23822489e-01, 1.03300000e-03, 2.59729681e-05])
+        # if version == 'v1':
+        #     self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        # else:
+        #     # try:
+        #     #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
+        #     # except OSError:
+        #         self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        # self.tx_params = np.array([0.89, 1.033e-3, 1.9e-5])
+        self.tx_params = np.array([0.89, 1.03300000e-03, 2.2e-5])
 
         # print(self.pyro_params, self.tx_params)
 
@@ -330,7 +331,7 @@ class Demodulator:
         result = []
         for i in tqdm(range(n_frame)):
             frame = dataset['x'][i]
-            self.tx_params = dataset['params'][i][:3]
+            # self.tx_params = dataset['params'][i][:3]
             self.pyro_params = dataset['params'][i][3:]
             result.append(self.data_demodulate(frame, display=True))
         result = np.array(result)
@@ -490,10 +491,10 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 1600,
+        'fs': 2500,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 80,
+        'bit_rate': 125,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
         'version': 'v1'
@@ -509,7 +510,7 @@ if __name__ == '__main__':
         channel_range=cfg['channel_range']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_80bps_v1.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_125bps_v1.pkl')
     # import matplotlib.pyplot as plt
     #
     # d = Demodulator()
