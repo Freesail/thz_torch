@@ -1,17 +1,7 @@
 from serial import *
 import numpy as np
 import pickle
-from time import sleep
 from tqdm import tqdm
-
-# import numpy as np
-# import pickle
-# import pyqrcode
-# from math import ceil
-# import getpass
-# from skimage.io import imshow
-# from matplotlib import pyplot as plt
-# from easygui import passwordbox
 
 DEBUG = False
 
@@ -77,7 +67,7 @@ if __name__ == '__main__':
     dist = 2000
 
     frame_bits = 50
-    n_frames = 100
+    n_frames = 200
     frame_header = (1, 1, 1, 0)
     # ber_file = 'ber_test.pkl'
 

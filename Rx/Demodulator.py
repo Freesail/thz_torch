@@ -39,7 +39,6 @@ class Demodulator:
             #     self.tx_params = np.genfromtxt('./result/tx_cal/tx_params.csv', delimiter=',')
             # except OSError:
             self.tx_params = np.array([0.89, 1.033e-3, 2.2e-5])
-            # self.tx_params = np.array([9.23822489e-01, 1.03300000e-03, 2.59729681e-05])
 
         # print(self.pyro_params, self.tx_params)
 
@@ -180,8 +179,8 @@ class Demodulator:
         #         'x': np.array([v_frame]),
         #         'params': np.array([params])
         #     }
-            # print(dataset['x'].shape)
-            # print(dataset['params'].shape)
+        # print(dataset['x'].shape)
+        # print(dataset['params'].shape)
 
         if self.databuff is None:
             self.databuff = {
@@ -334,7 +333,7 @@ class Demodulator:
             v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
             err = np.zeros(10)
             for j in range(10):
-                err[j] = np.sum(np.abs(frame[j:j+v_header.shape[0]], v_header))
+                err[j] = np.sum(np.abs(frame[j:j + v_header.shape[0]], v_header))
             print(err)
             shift = np.argmin(err)
             print(shift)
@@ -520,24 +519,3 @@ if __name__ == '__main__':
     )
 
     demo.offline_data_demodulate(datafile='2000mm_50bps_v2.pkl')
-    # import matplotlib.pyplot as plt
-    #
-    # d = Demodulator()
-    # print(d.get_power(1023, integrate_method='trapz'))
-    # wl = np.arange(1, 20, 0.1)
-    # p = d.planck_equ(wl, 1023)
-    # p = p * np.pi * 0.8 * 2.89e-6
-    #
-    # plt.plot(wl, p)
-    # plt.show()
-
-    # t = np.arange(0, 50e-3, 1e-3)
-    # y0 = 293.15
-    # w = 0.8978
-    #
-    # y = d.torch_ode_piecewise_series_solv(t, y0, w, order=3)
-    # # print(y)
-    # plt.plot(t, y)
-    # plt.xlim([0, 50e-3])
-    # plt.ylim([200, 1100])
-    # plt.show()
