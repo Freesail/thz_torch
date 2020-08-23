@@ -6,6 +6,7 @@ from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
 import os
+from hashlib import sha256
 
 
 class Demodulator:
@@ -159,7 +160,7 @@ class Demodulator:
 
     def record_demodulate(self, frame, save_to=None):
         if save_to is None:
-            save_to = './result/ber_2500/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
+            save_to = './result/ber_wireless/%smm_%sbps_%s.pkl' % (self.channel_range, self.bit_rate, self.version)
         # self.record_cnt += 1
 
         # n = len(self.frame_header) + self.frame_bits
@@ -320,7 +321,7 @@ class Demodulator:
 
         return digits
 
-    def offline_data_demodulate(self, datafile, path='./result/ber_2500/'):
+    def offline_data_demodulate(self, datafile, path='./result/ber_wireless'):
         with open(os.path.join(path, datafile), 'rb') as f:
             dataset = pickle.load(f)
         # print(dataset['x'].shape)
@@ -333,17 +334,21 @@ class Demodulator:
             v_header, t_header = self.header_predict(self.tx_params[0], self.tx_params[1], self.tx_params[2])
             err = np.zeros(10)
             for j in range(10):
-                err[j] = np.sum(np.abs(frame[j:j + v_header.shape[0]], v_header))
+                err[j] = np.sum(np.abs(frame[j:j + v_header.shape[0]] - v_header))
             print(err)
             shift = np.argmin(err)
             print(shift)
             syn_frame = np.roll(frame, -shift)
+            dataset['x'][i] = syn_frame
 
             # self.tx_params = dataset['params'][i][:3]
             result.append(self.data_demodulate(syn_frame, display=True))
         result = np.array(result)
         with open(os.path.join(path, 'offline_%s' % datafile), 'wb') as f:
             pickle.dump(result, f)
+
+        with open(os.path.join('%s_syn' % path, datafile), 'wb') as f:
+            pickle.dump(dataset, f)
 
     def sequence_matching(self, vr, v1, v0, mode='l1'):
         if mode == 'l1':
@@ -498,10 +503,10 @@ class Demodulator:
 
 if __name__ == '__main__':
     cfg = {
-        'fs': 1000,
+        'fs': 1600,
         'channel_id': 'single',
         'channel_range': 2000,
-        'bit_rate': 50,
+        'bit_rate': 80,
         'frame_header': (1, 1, 1, 0),
         'frame_bits': 50,
         'version': 'v2'
@@ -518,4 +523,4 @@ if __name__ == '__main__':
         version=cfg['version']
     )
 
-    demo.offline_data_demodulate(datafile='2000mm_50bps_v2.pkl')
+    demo.offline_data_demodulate(datafile='2000mm_80bps_v2.pkl')
